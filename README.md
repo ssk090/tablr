@@ -2,6 +2,9 @@
 
 Combat urban loneliness by matching professionals for communal dining experiences.
 
+<img width="2316" height="1439" alt="image" src="https://github.com/user-attachments/assets/258fdb8f-60fc-4eaa-bd58-bb2b8cdbeb24" />
+
+
 ## How It Works
 
 ```
