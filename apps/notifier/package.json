@@ -1,0 +1,23 @@
+{
+  "name": "@tablr/notifier",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@tablr/database": "workspace:*",
+    "@tablr/core": "workspace:*",
+    "express": "^5.2.1",
+    "resend": "^6.12.2",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

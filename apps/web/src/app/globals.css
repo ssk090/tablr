@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  /* Charcoal Noir Background */
+  --background: #0a0a0a;
+  --foreground: #f5f5dc; /* Silk Cream */
+
+  /* Brand Colors */
+  --primary: #4a0e0e; /* Vintage Bordeaux */
+  --primary-foreground: #f5f5dc;
+
+  --secondary: #1a1a1a;
+  --secondary-foreground: #f5f5dc;
+
+  --accent: #d4af37; /* Champagne Gold */
+  --accent-foreground: #0a0a0a;
+
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+
+  --border: #2a1a1a;
+  --input: #1a1a1a;
+  --ring: #d4af37;
+
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-serif: var(--font-fraunces);
+  --font-sans: var(--font-jakarta);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-jakarta), sans-serif;
+  position: relative;
+  overflow-x: hidden;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Texture & Atmosphere */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 50;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-fraunces), serif;
+}
