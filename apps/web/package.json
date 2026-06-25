@@ -29,11 +29,13 @@
     "resend": "^6.12.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "pg": "^8.22.0",
     "zod": "3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

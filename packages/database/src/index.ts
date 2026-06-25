@@ -7,12 +7,19 @@ import { PrismaClient } from "@prisma/client";
 export * from "@prisma/client";
 
 function loadRootEnv(): void {
+  // Skip .env loading on Vercel — env vars are injected by platform
+  if (process.env.VERCEL) return;
+
   let currentDir = dirname(fileURLToPath(import.meta.url));
 
   while (currentDir !== dirname(currentDir)) {
     const envPath = join(currentDir, ".env");
     if (existsSync(envPath)) {
-      process.loadEnvFile(envPath);
+      try {
+        process.loadEnvFile(envPath);
+      } catch {
+        // Silently ignore .env parse failures on platforms that don't need it
+      }
       return;
     }
     currentDir = dirname(currentDir);
