@@ -216,7 +216,7 @@ export default function Home() {
               {
                 icon: <MapPin className="h-6 w-6" />,
                 title: "Find compatible diners",
-                desc: "Search for people who overlap with your food cravings, location preferences, and conversation style.",
+                desc: "Search for people who share your food cravings, location preferences, and conversation style.",
               },
               {
                 icon: <MailCheck className="h-6 w-6" />,
@@ -231,6 +231,7 @@ export default function Home() {
             ].map((feature, i) => (
               <motion.div
                 key={feature.title}
+                className="flex"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -274,21 +275,22 @@ export default function Home() {
           <div className="grid gap-4 sm:grid-cols-2">
             {[
               ["Japanese near Indiranagar", "Matched with a product designer who also loves jazz bars."],
-              ["South Indian brunch in Jayanagar", "Met a founder comparing filter coffee notes and book lists."],
+              ["South Indian brunch in Jayanagar", "Met a founder comparing filter coffee notes and favourite book lists."],
               ["Korean BBQ around HSR", "A low-pressure dinner with another new-to-Bangalore professional."],
               ["Chef-led tasting in Koramangala", "Four diners, shared curiosity, one carefully coordinated table."],
             ].map(([title, desc], i) => (
               <motion.div
                 key={title}
+                className="flex"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12 }}
               >
                 <GlassPanel>
-                  <Handshake className="mb-5 h-7 w-7 text-accent" />
+                  <Handshake className="mb-5 h-7 w-7 text-accent shrink-0" />
                   <h3 className="mb-3 font-serif text-xl font-bold text-foreground">{title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
+                  <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{desc}</p>
                 </GlassPanel>
               </motion.div>
             ))}

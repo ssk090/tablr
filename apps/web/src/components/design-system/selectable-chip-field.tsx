@@ -103,7 +103,7 @@ export function SelectableChipField({
                         "border-primary/50 bg-primary text-primary-foreground shadow-[0_0_20px_color-mix(in_srgb,var(--primary)_40%,transparent)]",
                         selectedClassName,
                       )
-                    : "border-border bg-background/70 text-muted-foreground shadow-sm hover:border-primary/40 hover:bg-secondary/60 dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-white/30",
+                    : "border-border bg-background/70 text-muted-foreground shadow-sm hover:border-primary/40 hover:bg-secondary/60",
                 )}
               >
                 {option}
@@ -126,7 +126,7 @@ export function SelectableChipField({
           type="button"
           disabled={!normalizeOption(customValue)}
           onClick={addCustomOption}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background/70 px-5 py-3 text-sm font-bold text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/30 dark:hover:bg-white/[0.06]"
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background/70 px-5 py-3 text-sm font-bold text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Plus className="h-4 w-4" /> Add custom
         </button>

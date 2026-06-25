@@ -2,20 +2,23 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { acceptInvite, confirmBooking, getPublicProfile } from "./actions";
 
-export default function MatchProfilePage({ params }: { params: { profileId: string } }) {
+export default function MatchProfilePage() {
+  const params = useParams<{ profileId: string }>();
   const searchParams = useSearchParams();
+  const profileId = params.profileId;
   const eventId = searchParams.get("eventId") ?? undefined;
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["public-profile", params.profileId, eventId],
-    queryFn: () => getPublicProfile(params.profileId, eventId),
+    queryKey: ["public-profile", profileId, eventId],
+    queryFn: () => getPublicProfile(profileId, eventId),
+    enabled: !!profileId,
   });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["public-profile", params.profileId, eventId] });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["public-profile", profileId, eventId] });
   const accept = useMutation({ mutationFn: () => acceptInvite(eventId ?? ""), onSuccess: refresh });
   const confirm = useMutation({ mutationFn: () => confirmBooking(eventId ?? ""), onSuccess: refresh });
 

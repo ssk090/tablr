@@ -105,7 +105,7 @@ export function FeatureCard({
   return (
     <Card
       className={cn(
-        "group relative overflow-hidden border-border/70 bg-secondary/30 transition-all hover:-translate-y-1 hover:border-border hover:bg-secondary/50",
+        "flex h-full flex-col group relative overflow-hidden border-border/70 bg-secondary/30 transition-all hover:-translate-y-1 hover:border-border hover:bg-secondary/50",
         className,
       )}
     >
@@ -113,7 +113,7 @@ export function FeatureCard({
         {icon}
       </div>
       <h3 className="mb-4 font-serif text-2xl font-bold text-foreground">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
+      <p className="flex-1 text-muted-foreground">{description}</p>
       <div className="absolute bottom-0 left-0 h-1 w-0 bg-primary transition-all duration-500 group-hover:w-full" />
     </Card>
   );
@@ -129,7 +129,7 @@ export function GlassPanel({
   return (
     <Card
       className={cn(
-        "border-border/70 bg-secondary/30 p-6 backdrop-blur-md transition-colors hover:border-border hover:bg-secondary/50",
+        "flex h-full flex-col border-border/70 bg-secondary/30 p-6 backdrop-blur-md transition-colors hover:border-border hover:bg-secondary/50",
         className,
       )}
     >

@@ -12,7 +12,6 @@ import {
 import {
   Send,
   Sparkles,
-  UtensilsCrossed,
   Loader2,
   MoreVertical,
   Trash2,
@@ -33,7 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../components/design-system/atoms";
 import { Ripple } from "@/components/ui/ripple";
-import type { JSONValue } from "ai";
+
 import { motion, AnimatePresence } from "framer-motion";
 
 // Types for chat session data from database
@@ -172,7 +171,7 @@ function ToolCallDisplay({
   toolCall: ToolCallPart;
   result?: ToolResultPart;
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+
 
   const toolIcon =
     {
@@ -329,7 +328,7 @@ function ToolResultView({ toolName, result }: { toolName: string; result: unknow
           <p className="text-sm font-semibold text-emerald-400/90">{data.message ?? "Here are a few spots."}</p>
         </div>
         {data.restaurants?.map((restaurant) => (
-          <div key={restaurant.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div key={restaurant.id} className="rounded-2xl border border-border/60 bg-secondary/20 p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-bold text-foreground">{restaurant.name}</p>
@@ -372,7 +371,7 @@ function ToolResultView({ toolName, result }: { toolName: string; result: unknow
           <a
             key={card.profileId}
             href={card.profilePath ?? `/dashboard/profiles/${card.profileId}`}
-            className="block rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:bg-white/[0.06]"
+            className="block rounded-2xl border border-border/60 bg-secondary/20 p-4 transition hover:bg-secondary/30"
           >
             <p className="font-bold text-foreground">{card.name}</p>
             <p className="text-xs text-muted-foreground">
@@ -415,7 +414,7 @@ function FormattedAssistantText({ text }: { text: string }) {
       {intro && <p>{intro}</p>}
       <div className="grid gap-3">
         {items.map((item) => (
-          <div key={`${item.number}-${item.title}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div key={`${item.number}-${item.title}`} className="rounded-2xl border border-border/60 bg-secondary/20 p-4">
             <div className="flex gap-3">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-black text-primary">
                 {item.number}
@@ -456,11 +455,10 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
   }, [chatSession]);
 
   // Initialize chat
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { messages, sendMessage, status, error, setMessages } = useChat({
     id: chatSession.id,
-    // @ts-expect-error - Using custom Message type for compatibility
-    messages: initialMessages,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: initialMessages as any,
   });
 
   const isSending = status === "streaming" || status === "submitted";
@@ -499,6 +497,8 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     await sendText(localInput);
   };
 
+  const suggestionsFallback = useMemo(() => FALLBACK_SUGGESTIONS, []);
+
   const scrollSuggestions = (direction: "left" | "right"): void => {
     suggestionsScrollRef.current?.scrollBy({
       left: direction === "left" ? -280 : 280,
@@ -510,7 +510,6 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     if (isSending) return;
 
     if (messages.length === 0) {
-      setSuggestions(FALLBACK_SUGGESTIONS);
       return;
     }
 
@@ -545,14 +544,16 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         console.error("Failed to fetch suggestions:", error);
-        setSuggestions(FALLBACK_SUGGESTIONS);
+        setSuggestions(suggestionsFallback);
       }
     };
 
     void fetchSuggestions();
 
-    return () => abortController.abort();
-  }, [isSending, messages]);
+    return () => {
+      abortController.abort();
+    };
+  }, [isSending, messages, suggestionsFallback]);
 
   const handleClearHistory = async () => {
     if (messages.length === 0 || isClearingHistory) return;
@@ -708,7 +709,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                 <div className="space-y-3">
                   <h2 className="text-3xl font-black tracking-tight text-foreground">
                     Your Personal{" "}
-                    <span className="text-primary italic">Maître D'</span>
+                    <span className="text-primary italic">Ma&icirc;tre D&apos;</span>
                   </h2>
                   <p className="mx-auto max-w-md text-sm font-medium text-muted-foreground/60 leading-relaxed">
                     I orchestrate social dining experiences that transcend the
@@ -745,7 +746,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
             )}
           </AnimatePresence>
 
-          {messages.map((message, i) => (
+          {messages.map((message) => (
             <motion.div
               key={message.id}
               initial={{ opacity: 0, y: 20 }}
@@ -874,7 +875,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                               return (
                                 <div className="px-7 py-5 border-t border-border/60 bg-emerald-500/5">
                                   <p className="text-emerald-400/90 italic">
-                                    "{String(toolResults[0].result)}"
+                                    &ldquo;{String(toolResults[0].result)}&rdquo;
                                   </p>
                                 </div>
                               );

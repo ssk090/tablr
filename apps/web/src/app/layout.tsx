@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 };
 
 import { QueryProvider } from "@/components/providers/query-provider";
+import { ToasterAdapter } from "@/components/ui/toaster-adapter";
 
 export default function RootLayout({
   children,
@@ -49,6 +50,7 @@ export default function RootLayout({
               <div className="pointer-events-none fixed inset-0 z-50 bg-[url('/noise.png')] opacity-[0.03]" />
               {children}
             </div>
+            <ToasterAdapter />
           </QueryProvider>
         </body>
       </html>

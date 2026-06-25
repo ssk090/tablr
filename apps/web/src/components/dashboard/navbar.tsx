@@ -16,7 +16,7 @@ export function DashboardNavbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/5 bg-background/50 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/50 backdrop-blur-xl">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
         <div className="flex items-center gap-10">
           <Link href="/" className="group flex items-center gap-2">

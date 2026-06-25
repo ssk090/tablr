@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Check, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Card, Input, Label } from "@/components/design-system/atoms";
 import { SelectableChipField } from "@/components/design-system/selectable-chip-field";
 import { getProfile, saveProfile } from "../../onboarding/actions";
@@ -39,8 +40,21 @@ export function ProfileForm({ userId }: { userId: string }) {
 
   const mutation = useMutation({
     mutationFn: (data: ProfileFormValues) => saveProfile(userId, data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+      toast.success("Profile saved", {
+        description: "Your changes have been updated successfully.",
+      });
+      if (result?.warning) {
+        toast.warning("Sync notice", {
+          description: result.warning,
+        });
+      }
+    },
+    onError: (error) => {
+      toast.error("Failed to save profile", {
+        description: error instanceof Error ? error.message : "Something went wrong.",
+      });
     },
   });
 
@@ -248,12 +262,6 @@ export function ProfileForm({ userId }: { userId: string }) {
         {mutation.data?.warning ? (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm font-medium text-amber-700 dark:text-amber-200">
             {mutation.data.warning}
-          </div>
-        ) : null}
-
-        {mutation.error ? (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm font-medium text-destructive">
-            {mutation.error instanceof Error ? mutation.error.message : "Failed to save profile."}
           </div>
         ) : null}
 

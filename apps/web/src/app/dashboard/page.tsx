@@ -51,7 +51,7 @@ export default function Dashboard() {
       >
         {/* Welcome Card */}
         <motion.div variants={item} className="lg:col-span-2">
-          <div className="relative h-full overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-primary/10 to-accent/5 p-10 border border-white/5">
+          <div className="relative h-full overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-primary/10 to-accent/5 p-10 border border-border/60">
             <div className="relative z-10 flex h-full flex-col justify-center">
               <h1 className="mb-4 font-serif text-5xl font-bold tracking-tight">
                 Welcome back, <span className="text-primary">{user?.firstName || "Diner"}</span>
@@ -79,7 +79,7 @@ export default function Dashboard() {
 
         {/* Concierge Widget */}
         <motion.div variants={item}>
-          <div className="flex h-full flex-col justify-center rounded-[2.5rem] border border-white/5 bg-white/[0.02] p-8 backdrop-blur-md">
+          <div className="flex h-full flex-col justify-center rounded-[2.5rem] border border-border/70 bg-secondary/20 p-8 backdrop-blur-md">
             <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
               <Sparkles className="h-6 w-6" />
             </div>
@@ -91,7 +91,7 @@ export default function Dashboard() {
             </p>
             <Link
               href="/dashboard/new-dinner"
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 py-3 text-sm font-semibold transition-all hover:bg-white/5"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/70 py-3 text-sm font-semibold transition-all hover:bg-secondary/30"
             >
               <MessageSquare className="h-4 w-4" /> Start a conversation
             </Link>
@@ -103,7 +103,7 @@ export default function Dashboard() {
           {statsConfig.map((stat) => (
             <div
               key={stat.label}
-              className="flex items-center gap-4 rounded-3xl border border-white/5 bg-white/[0.01] p-6 transition-all hover:bg-white/[0.03]"
+              className="flex items-center gap-4 rounded-3xl border border-border/70 bg-secondary/20 p-6 transition-all hover:bg-secondary/30"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-muted-foreground">
                 {stat.icon}
@@ -123,7 +123,7 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={item} className="lg:col-span-3">
-          <div className="rounded-[2.5rem] border border-white/5 bg-white/[0.02] p-8">
+          <div className="rounded-[2.5rem] border border-border/70 bg-secondary/20 p-8">
             <h2 className="mb-6 font-serif text-3xl font-bold">Your Matches</h2>
             {stats?.connectedPeople?.length ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -131,7 +131,7 @@ export default function Dashboard() {
                   <Link
                     key={`${match.event.id}-${match.profile.id}`}
                     href={`/dashboard/profiles/${match.profile.id}?eventId=${match.event.id}`}
-                    className="rounded-3xl border border-white/5 bg-white/[0.02] p-5 transition hover:bg-white/[0.05]"
+                    className="rounded-3xl border border-border/70 bg-secondary/20 p-5 transition hover:bg-secondary/30"
                   >
                     <p className="text-lg font-bold">{match.profile.name}</p>
                     <p className="text-sm text-muted-foreground">
