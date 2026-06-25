@@ -3,7 +3,7 @@
 import { useUser, UserButton } from "@clerk/nextjs";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { motion } from "framer-motion";
-import { ArrowRight, Calendar, Sparkles, Users, Utensils } from "lucide-react";
+import { ArrowRight, Calendar, Handshake, MailCheck, MapPin, Sparkles, Users, Utensils } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -28,7 +28,7 @@ export default function Home() {
   return (
     <div className="relative min-h-screen selection:bg-accent selection:text-accent-foreground">
       {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-background/50 backdrop-blur-xl">
+      <nav className="fixed top-0 z-50 w-full border-b border-border/70 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2">
             <span className="font-serif text-2xl font-bold tracking-tight text-foreground">
@@ -80,7 +80,19 @@ export default function Home() {
             )}
           </div>
 
-          <div className="md:hidden">
+          <div className="flex items-center gap-4 md:hidden">
+            <Link
+              href="#how-it-works"
+              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            >
+              How
+            </Link>
+            <Link
+              href="#community"
+              className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Community
+            </Link>
             <AnimatedThemeToggler />
           </div>
         </div>
@@ -145,7 +157,7 @@ export default function Home() {
             )}
             <Link
               href="#how-it-works"
-              className="flex h-14 w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 text-lg font-semibold text-foreground backdrop-blur-md transition-all hover:bg-white/10 sm:w-auto"
+              className="flex h-14 w-full items-center justify-center rounded-full border border-border/80 bg-secondary/50 px-8 text-lg font-semibold text-foreground backdrop-blur-md transition-all hover:bg-secondary/80 sm:w-auto"
             >
               Learn More
             </Link>
@@ -163,7 +175,7 @@ export default function Home() {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute right-[10%] top-[20%] hidden rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl md:block"
+          className="absolute right-[10%] top-[20%] hidden rounded-2xl border border-border/80 bg-secondary/60 p-4 shadow-lg shadow-primary/10 backdrop-blur-xl md:block"
         >
           <Utensils className="h-8 w-8 text-accent" />
         </motion.div>
@@ -179,31 +191,49 @@ export default function Home() {
             ease: "easeInOut",
             delay: 1,
           }}
-          className="absolute left-[15%] bottom-[20%] hidden rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl md:block"
+          className="absolute left-[15%] bottom-[20%] hidden rounded-2xl border border-border/80 bg-secondary/60 p-4 shadow-lg shadow-primary/10 backdrop-blur-xl md:block"
         >
           <Users className="h-8 w-8 text-primary" />
         </motion.div>
       </section>
 
-      {/* Feature Grid */}
-      <section id="how-it-works" className="relative py-32">
+      {/* How It Works */}
+      <section id="how-it-works" className="relative scroll-mt-24 py-32">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="mx-auto mb-16 max-w-3xl text-center">
+            <p className="mb-4 text-sm font-bold uppercase tracking-[0.3em] text-accent">
+              How it works
+            </p>
+            <h2 className="mb-6 font-serif text-4xl font-bold text-foreground md:text-6xl">
+              Match first. Book only when everyone says yes.
+            </h2>
+            <p className="text-lg leading-relaxed text-muted-foreground">
+              Tablr is people-first: discover compatible Bangalore diners by cuisine,
+              neighbourhood, interests, and vibe before the restaurant reservation begins.
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-4">
             {[
               {
                 icon: <Users className="h-6 w-6" />,
-                title: "Curated Matching",
-                desc: "Our AI analyzes professional background and interests to find your perfect dinner squad.",
+                title: "Create your taste profile",
+                desc: "Share your interests, profession, favourite cuisines, and preferred Bangalore neighbourhoods.",
               },
               {
-                icon: <Utensils className="h-6 w-6" />,
-                title: "Top Restaurants",
-                desc: "Access Bangalore's best dining spots, from hidden gems to Michelin-inspired kitchens.",
+                icon: <MapPin className="h-6 w-6" />,
+                title: "Find compatible diners",
+                desc: "Search for people who overlap with your food cravings, location preferences, and conversation style.",
+              },
+              {
+                icon: <MailCheck className="h-6 w-6" />,
+                title: "Send a mutual invite",
+                desc: "Invite someone by email. Both diners accept before anything moves toward a table booking.",
               },
               {
                 icon: <Calendar className="h-6 w-6" />,
-                title: "Seamless Booking",
-                desc: "We handle the table reservations and coordination. You just show up and enjoy.",
+                title: "Confirm, then reserve",
+                desc: "Once both confirm, the Swiggy Dineout agent helps coordinate and book the right restaurant.",
               },
             ].map((feature, i) => (
               <motion.div
@@ -211,8 +241,8 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.2 }}
-                className="group relative overflow-hidden rounded-3xl border border-white/5 bg-white/[0.02] p-8 transition-all hover:bg-white/[0.04]"
+                transition={{ delay: i * 0.15 }}
+                className="group relative overflow-hidden rounded-3xl border border-border/70 bg-secondary/30 p-8 transition-all hover:-translate-y-1 hover:border-border hover:bg-secondary/50"
               >
                 <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all group-hover:scale-110 group-hover:bg-primary/20">
                   {feature.icon}
@@ -228,8 +258,61 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Community */}
+      <section id="community" className="relative scroll-mt-24 overflow-hidden py-32">
+        <div className="absolute inset-x-0 top-1/2 h-64 -translate-y-1/2 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+          >
+            <p className="mb-4 text-sm font-bold uppercase tracking-[0.3em] text-accent">
+              Community
+            </p>
+            <h2 className="mb-6 font-serif text-4xl font-bold text-foreground md:text-6xl">
+              A warmer way to meet people over food.
+            </h2>
+            <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
+              Join curious founders, designers, operators, engineers, artists, and food lovers
+              across Indiranagar, HSR, Koramangala, Jayanagar, and beyond. Every match is built
+              around shared tastes and mutual intent—not random networking.
+            </p>
+            <Link
+              href={isLoaded && isSignedIn ? "/dashboard" : "/sign-up"}
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 text-lg font-bold text-primary-foreground shadow-2xl shadow-primary/20 transition-all hover:scale-105 hover:bg-primary/90 active:scale-95"
+            >
+              Join the Community <ArrowRight className="h-5 w-5" />
+            </Link>
+          </motion.div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              ["Japanese near Indiranagar", "Matched with a product designer who also loves jazz bars."],
+              ["South Indian brunch in Jayanagar", "Met a founder comparing filter coffee notes and book lists."],
+              ["Korean BBQ around HSR", "A low-pressure dinner with another new-to-Bangalore professional."],
+              ["Chef-led tasting in Koramangala", "Four diners, shared curiosity, one carefully coordinated table."],
+            ].map(([title, desc], i) => (
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+                className="rounded-3xl border border-border/70 bg-secondary/30 p-6 backdrop-blur-md transition-colors hover:border-border hover:bg-secondary/50"
+              >
+                <Handshake className="mb-5 h-7 w-7 text-accent" />
+                <h3 className="mb-3 font-serif text-xl font-bold text-foreground">{title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="border-t border-white/5 py-20 text-center">
+      <footer className="border-t border-border/70 py-20 text-center">
         <div className="mx-auto max-w-7xl px-6">
           <span className="font-serif text-xl font-bold tracking-tight text-foreground">
             Tablr<span className="text-primary">.</span>
