@@ -37,6 +37,19 @@ export async function getOrCreateChat() {
   return chat;
 }
 
+export async function clearChatHistory() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  return await prisma.message.updateMany({
+    where: {
+      profileId: userId,
+      hidden: false,
+    },
+    data: { hidden: true },
+  });
+}
+
 export async function deleteMessage(messageId: string) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");

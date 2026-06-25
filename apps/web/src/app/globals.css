@@ -1,11 +1,35 @@
 @import "tailwindcss";
 
 :root {
+  /* Silk Cream Light Background */
+  --background: #fbf7ec;
+  --foreground: #140f0f;
+
+  /* Brand Colors */
+  --primary: #4a0e0e; /* Vintage Bordeaux */
+  --primary-foreground: #f5f5dc;
+
+  --secondary: #f1e7d2;
+  --secondary-foreground: #140f0f;
+
+  --accent: #9f7b13; /* Champagne Gold, darkened for light-mode contrast */
+  --accent-foreground: #140f0f;
+
+  --muted: #efe6d5;
+  --muted-foreground: #6b6258;
+
+  --border: #e4d3b7;
+  --input: #f1e7d2;
+  --ring: #9f7b13;
+
+  --radius: 0.75rem;
+}
+
+.dark {
   /* Charcoal Noir Background */
   --background: #0a0a0a;
   --foreground: #f5f5dc; /* Silk Cream */
 
-  /* Brand Colors */
   --primary: #4a0e0e; /* Vintage Bordeaux */
   --primary-foreground: #f5f5dc;
 
@@ -21,8 +45,6 @@
   --border: #2a1a1a;
   --input: #1a1a1a;
   --ring: #d4af37;
-
-  --radius: 0.75rem;
 }
 
 @theme inline {
@@ -58,6 +80,24 @@ button {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html[data-magicui-theme-vt="active"]::view-transition-group(root) {
+  animation-duration: var(--magicui-theme-toggle-vt-duration);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 /* Texture & Atmosphere */

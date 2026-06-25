@@ -1,6 +1,7 @@
 "use client";
 
 import { useUser, UserButton } from "@clerk/nextjs";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Sparkles, Users, Utensils } from "lucide-react";
 import Link from "next/link";
@@ -48,6 +49,7 @@ export default function Home() {
             >
               Community
             </Link>
+            <AnimatedThemeToggler />
             {isLoaded && !isSignedIn && (
               <>
                 <Link
@@ -76,6 +78,10 @@ export default function Home() {
                 <UserButton />
               </>
             )}
+          </div>
+
+          <div className="md:hidden">
+            <AnimatedThemeToggler />
           </div>
         </div>
       </nav>

@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { LayoutDashboard, Sparkles, User, Utensils } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -54,6 +55,7 @@ export function DashboardNavbar() {
               AI Concierge
             </span>
           </div>
+          <AnimatedThemeToggler />
           <UserButton />
         </div>
       </div>

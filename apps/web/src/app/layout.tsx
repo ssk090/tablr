@@ -32,8 +32,16 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
+        suppressHydrationWarning
         className={`${fraunces.variable} ${plusJakartaSans.variable} h-full antialiased dark`}
       >
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `try{const theme=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",theme?theme==="dark":true)}catch{}`,
+            }}
+          />
+        </head>
         <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
           <QueryProvider>
             <div className="relative min-h-screen">

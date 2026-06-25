@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { getOrCreateChat, deleteMessage, hideSubsequentMessages } from "@/app/actions/chat";
+import { clearChatHistory, deleteMessage, getOrCreateChat, hideSubsequentMessages } from "@/app/actions/chat";
 import { 
   Send, Sparkles, UtensilsCrossed, Loader2, MoreVertical, 
   Trash2, Edit3, X, Check, Cog, ArrowRight, CalendarDays, 
@@ -222,7 +222,7 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
             {formattedArgs.map(({ key, value, icon: Icon }) => (
               <div 
                 key={key}
-                className="group relative flex flex-col gap-1 rounded-2xl bg-white/[0.02] border border-white/5 p-3 transition-all hover:bg-white/[0.04] hover:border-primary/20"
+                className="group relative flex flex-col gap-1 rounded-2xl bg-muted/30 border border-border/60 p-3 transition-all hover:bg-muted/60 hover:border-primary/20"
               >
                 <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider flex items-center gap-1.5">
                   {Icon && <Icon className="h-2.5 w-2.5" />}
@@ -265,10 +265,12 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
 }
 
 function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
+  const queryClient = useQueryClient();
   const [localInput, setLocalInput] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Prepare initial messages
@@ -318,6 +320,22 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     }
   };
 
+  const handleClearHistory = async () => {
+    if (messages.length === 0 || isClearingHistory) return;
+
+    setIsClearingHistory(true);
+    try {
+      await clearChatHistory();
+      setMessages([]);
+      setActiveMenuId(null);
+      await queryClient.invalidateQueries({ queryKey: ["chat-session"] });
+    } catch (err) {
+      console.error("Clear history failed:", err);
+    } finally {
+      setIsClearingHistory(false);
+    }
+  };
+
   const handleDelete = async (messageId: string) => {
     try {
       await deleteMessage(messageId);
@@ -363,7 +381,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col bg-[#050505] overflow-hidden relative selection:bg-primary/30 selection:text-primary-foreground">
+    <div className="flex h-[calc(100vh-4rem)] flex-col bg-background text-foreground overflow-hidden relative selection:bg-primary/30 selection:text-primary-foreground">
       {/* Grain Overlay */}
       <div className="pointer-events-none absolute inset-0 z-50 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
       
@@ -372,7 +390,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
 
       {/* Header */}
-      <header className="shrink-0 border-b border-white/5 bg-black/40 px-8 py-5 backdrop-blur-2xl z-20">
+      <header className="shrink-0 border-b border-border/60 bg-background/70 px-8 py-5 backdrop-blur-2xl z-20">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -383,7 +401,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-white/90">
+                <h1 className="text-xl font-bold tracking-tight text-foreground">
                   Tablr <span className="text-primary/80">Concierge</span>
                 </h1>
                 <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[8px] font-black text-primary uppercase tracking-[0.2em]">
@@ -396,11 +414,21 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              disabled={messages.length === 0 || isClearingHistory || isSending}
+              className="flex items-center gap-2 rounded-2xl border border-border bg-muted/40 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-all hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
+              aria-label="Clear chat history"
+            >
+              {isClearingHistory ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Clear
+            </button>
             {status !== "ready" && (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-center gap-3 rounded-2xl bg-white/[0.03] border border-white/10 px-4 py-2 text-[10px] font-black text-primary uppercase tracking-widest shadow-2xl"
+                className="flex items-center gap-3 rounded-2xl bg-muted/40 border border-border px-4 py-2 text-[10px] font-black text-primary uppercase tracking-widest shadow-2xl"
               >
                 <div className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -443,7 +471,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <h2 className="text-3xl font-black tracking-tight text-white/90">
+                  <h2 className="text-3xl font-black tracking-tight text-foreground">
                     Your Personal <span className="text-primary italic">Maître D'</span>
                   </h2>
                   <p className="mx-auto max-w-md text-sm font-medium text-muted-foreground/60 leading-relaxed">
@@ -465,12 +493,12 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.1 }}
                       onClick={() => setLocalInput(suggestion)}
-                      className="group relative flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.01] p-5 text-left transition-all hover:bg-white/[0.03] hover:border-primary/30"
+                      className="group relative flex items-center gap-4 rounded-2xl border border-border/60 bg-muted/30 p-5 text-left transition-all hover:bg-muted/40 hover:border-primary/30"
                     >
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors border border-primary/10">
                         <Sparkle className="h-5 w-5" />
                       </div>
-                      <span className="text-sm font-bold text-white/70 group-hover:text-white transition-colors tracking-tight">{suggestion}</span>
+                      <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors tracking-tight">{suggestion}</span>
                       <ArrowRight className="absolute right-5 h-4 w-4 text-primary opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </motion.button>
                   ))}
@@ -499,7 +527,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                   "mt-1 shrink-0 flex h-8 w-8 items-center justify-center rounded-xl border transition-all",
                   message.role === "user" 
                     ? "bg-primary/10 border-primary/20 text-primary" 
-                    : "bg-white/5 border-white/10 text-white/40"
+                    : "bg-muted/50 border-border text-muted-foreground"
                 )}>
                   {message.role === "user" ? <Command className="h-4 w-4" /> : <ChefHat className="h-4 w-4" />}
                 </div>
@@ -514,21 +542,21 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                     "relative rounded-3xl text-sm leading-snug overflow-hidden transition-all",
                     message.role === "user"
                       ? "bg-primary text-primary-foreground shadow-xl shadow-primary/10 font-medium"
-                      : "border border-white/5 bg-white/[0.02] backdrop-blur-xl"
+                      : "border border-border/60 bg-muted/30 backdrop-blur-xl"
                   )}>
                     {editingMessageId === message.id ? (
                       <div className="flex flex-col gap-4 min-w-[280px] p-2">
                         <textarea
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-sm resize-none text-white/90 font-medium"
+                          className="w-full bg-transparent border-none focus:ring-0 text-sm resize-none text-foreground font-medium"
                           autoFocus
                           rows={3}
                         />
-                        <div className="flex justify-end gap-2 border-t border-white/5 pt-3">
+                        <div className="flex justify-end gap-2 border-t border-border/60 pt-3">
                           <button 
                             onClick={cancelEdit}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/40 transition-colors"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-muted/50 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors"
                           >
                             <X className="h-3 w-3" /> Cancel
                           </button>
@@ -546,7 +574,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                         {getMessageText(message) && (
                           <div className={cn(
                             "px-6 py-3.5",
-                            message.role === "assistant" ? "text-white/80 font-medium tracking-tight text-base" : "text-primary-foreground"
+                            message.role === "assistant" ? "text-foreground font-medium tracking-tight text-base" : "text-primary-foreground"
                           )}>
                             {getMessageText(message)}
                           </div>
@@ -579,7 +607,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                           // Show if we have tool results but no text and NO tool calls (unusual but possible)
                           if (toolResults.length > 0 && toolResults[0].result && toolCalls.length === 0) {
                             return (
-                              <div className="px-7 py-5 border-t border-white/5 bg-emerald-500/5">
+                              <div className="px-7 py-5 border-t border-border/60 bg-emerald-500/5">
                                 <p className="text-emerald-400/90 italic">"{String(toolResults[0].result)}"</p>
                               </div>
                             );
@@ -598,20 +626,20 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                     )}>
                       <button 
                         onClick={() => setActiveMenuId(activeMenuId === message.id ? null : message.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/5 text-muted-foreground/30 hover:text-primary transition-all hover:scale-110"
+                        className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted/50 text-muted-foreground/30 hover:text-primary transition-all hover:scale-110"
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
                       
                       {activeMenuId === message.id && (
                         <div className={cn(
-                          "absolute z-30 min-w-[140px] rounded-2xl border border-white/10 bg-black/90 p-1.5 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-200",
+                          "absolute z-30 min-w-[140px] rounded-2xl border border-border bg-background/95 p-1.5 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-200",
                           message.role === "user" ? "right-full mr-2 top-0" : "left-full ml-2 top-0"
                         )}>
                           {message.role === "user" && (
                             <button 
                               onClick={() => startEdit(message)}
-                              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/5 hover:text-primary transition-all"
+                              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 hover:text-primary transition-all"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
                               Edit Ritual
@@ -651,7 +679,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
               animate={{ opacity: 1, x: 0 }}
               className="flex justify-start"
             >
-              <div className="flex items-center gap-4 rounded-3xl border border-white/5 bg-white/[0.02] px-6 py-3 backdrop-blur-xl">
+              <div className="flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/30 px-6 py-3 backdrop-blur-xl">
                 <div className="flex gap-2">
                   <motion.span 
                     animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
@@ -669,7 +697,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                     className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
                   />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">
                   Synthesizing
                 </span>
               </div>
@@ -679,7 +707,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
       </div>
 
       {/* Input Area */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black via-black/90 to-transparent pt-20 pb-8 px-8">
+      <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-background via-background/90 to-transparent pt-20 pb-8 px-8">
         <div className="mx-auto max-w-3xl mb-4">
           <div className="flex flex-wrap gap-2 justify-center">
             {SUGGESTIONS.map((suggestion) => (
@@ -693,7 +721,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                     if (form) form.requestSubmit();
                   }, 0);
                 }}
-                className="rounded-full bg-white/5 border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white/40 hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all active:scale-95"
+                className="rounded-full bg-muted/50 border border-border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all active:scale-95"
               >
                 {suggestion}
               </button>
@@ -708,7 +736,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                 value={localInput}
                 onChange={handleInputChange}
                 placeholder="Direct the concierge..."
-                className="w-full rounded-[2rem] border border-white/10 bg-black/60 py-5 pl-8 pr-16 text-base font-medium transition-all focus:border-primary/40 focus:outline-none focus:ring-0 placeholder:text-white/10 text-white/90 backdrop-blur-3xl"
+                className="w-full rounded-[2rem] border border-border bg-background/80 py-5 pl-8 pr-16 text-base font-medium transition-all focus:border-primary/40 focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40 text-foreground backdrop-blur-3xl"
               />
               <button
                 disabled={isSending || !localInput.trim()}
@@ -720,11 +748,11 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
             </div>
           </div>
           <div className="mt-4 flex items-center justify-center gap-6">
-            <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.5em]">
+            <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.5em]">
               Tablr <span className="text-primary/20">Aether</span> v6.0.4
             </p>
-            <div className="h-px w-8 bg-white/5" />
-            <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.5em]">
+            <div className="h-px w-8 bg-muted/50" />
+            <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.5em]">
               Encrypted Session
             </p>
           </div>
@@ -743,7 +771,7 @@ export default function NewDinnerPage() {
 
   if (isChatLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-[#050505] relative overflow-hidden">
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-background text-foreground relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
         <div className="flex flex-col items-center gap-6 relative z-10">
           <div className="relative">
@@ -763,7 +791,7 @@ export default function NewDinnerPage() {
 
   if (!chatData) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-[#050505]">
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-background text-foreground">
         <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-8 py-6 text-center backdrop-blur-xl">
           <p className="text-sm font-bold text-destructive uppercase tracking-widest mb-2">Manifestation Failed</p>
           <p className="text-xs text-destructive/60">The culinary spirits are silent. Please refresh.</p>
