@@ -16,7 +16,7 @@ async function main(): Promise<void> {
   console.log("Connecting to MCP servers...");
   const clients = await createClients(config);
 
-  const hasSwiggy = clients.swiggy !== null;
+  const hasSwiggy = clients.swiggyDineout !== null;
   console.log(`✅ Tablr MCP connected`);
   console.log(
     hasSwiggy

@@ -7,7 +7,8 @@ const AgentConfigSchema = z.object({
   // Tablr MCP server (stdio)
   TABLR_SERVER_PATH: z.string().default("./dist/index.js"),
 
-  // Swiggy Food MCP (HTTP) — optional
+  // Swiggy MCP (HTTP) — optional
+  SWIGGY_DINEOUT_URL: z.string().default("https://mcp.swiggy.com/dineout"),
   SWIGGY_FOOD_URL: z.string().default("https://mcp.swiggy.com/food"),
   SWIGGY_TOKEN: z.string().default(""),
 

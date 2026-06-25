@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { z } from "zod";
 import type { TablrDatabase } from '../db/database';
 import { searchLocalRestaurants, suggestRestaurantsForGroup } from '../restaurants/discovery';
-import { createMCPClient, createMcpTransport } from "@ai-sdk/mcp";
+import { createMCPClient } from "@ai-sdk/mcp";
 import { prisma as sharedPrisma } from "@tablr/database";
 
 // Default Bangalore center (Koramangala)
@@ -25,12 +25,13 @@ export function registerRestaurantTools(server: McpServer, db: TablrDatabase): v
 
       if (swiggyToken) {
         try {
-          const transport = createMcpTransport({
-            type: "http",
-            url: swiggyUrl,
-            headers: { Authorization: `Bearer ${swiggyToken}` },
+          const client = await createMCPClient({
+            transport: {
+              type: "http",
+              url: swiggyUrl,
+              headers: { Authorization: `Bearer ${swiggyToken}` },
+            },
           });
-          const client = await createMCPClient({ transport });
           
           console.log(`[Swiggy] Searching for: ${args.query || args.cuisine || args.area}`);
           
@@ -68,6 +69,7 @@ export function registerRestaurantTools(server: McpServer, db: TablrDatabase): v
                 costForTwo: Number((r.costForTwo || "₹400").replace(/[^\d]/g, "")) || 400,
                 groupFriendly: true,
                 maxGroupSize: 8,
+                ambiance: [],
                 highlights: r.highlights || [],
                 lat: r.lat || DEFAULT_LAT,
                 lng: r.lng || DEFAULT_LNG,
@@ -84,13 +86,13 @@ export function registerRestaurantTools(server: McpServer, db: TablrDatabase): v
                     ...restaurantData,
                     cuisine: restaurantData.cuisine as any,
                     highlights: restaurantData.highlights as any,
-                    ambiance: [] as any,
+                    ambiance: restaurantData.ambiance as any,
                   },
                   create: {
                     ...restaurantData,
                     cuisine: restaurantData.cuisine as any,
                     highlights: restaurantData.highlights as any,
-                    ambiance: [] as any,
+                    ambiance: restaurantData.ambiance as any,
                   },
                 });
               } catch (prismaError) {

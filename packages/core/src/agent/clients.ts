@@ -1,10 +1,11 @@
-import { createMCPClient, createMcpTransport } from "@ai-sdk/mcp";
+import { createMCPClient } from "@ai-sdk/mcp";
 import { Experimental_StdioMCPTransport } from "@ai-sdk/mcp/mcp-stdio";
 import type { ToolSet } from "ai";
 import type { AgentConfig } from './config';
 
 type MCPClientInstance = Awaited<ReturnType<typeof createMCPClient>>;
 
+export interface MCPClients {
   readonly tablr: MCPClientInstance;
   readonly swiggyDineout: MCPClientInstance | null;
   readonly swiggyFood: MCPClientInstance | null;
@@ -33,13 +34,13 @@ async function connectTablr(config: AgentConfig): Promise<MCPClientInstance> {
 async function connectSwiggyDineout(config: AgentConfig): Promise<MCPClientInstance | null> {
   if (!config.SWIGGY_TOKEN || !config.SWIGGY_DINEOUT_URL) return null;
 
-  const transport = createMcpTransport({
-    type: "http",
-    url: config.SWIGGY_DINEOUT_URL,
-    headers: { Authorization: `Bearer ${config.SWIGGY_TOKEN}` },
+  return createMCPClient({
+    transport: {
+      type: "http",
+      url: config.SWIGGY_DINEOUT_URL,
+      headers: { Authorization: `Bearer ${config.SWIGGY_TOKEN}` },
+    },
   });
-
-  return createMCPClient({ transport });
 }
 
 /**
@@ -48,13 +49,13 @@ async function connectSwiggyDineout(config: AgentConfig): Promise<MCPClientInsta
 async function connectSwiggyFood(config: AgentConfig): Promise<MCPClientInstance | null> {
   if (!config.SWIGGY_TOKEN || !config.SWIGGY_FOOD_URL) return null;
 
-  const transport = createMcpTransport({
-    type: "http",
-    url: config.SWIGGY_FOOD_URL,
-    headers: { Authorization: `Bearer ${config.SWIGGY_TOKEN}` },
+  return createMCPClient({
+    transport: {
+      type: "http",
+      url: config.SWIGGY_FOOD_URL,
+      headers: { Authorization: `Bearer ${config.SWIGGY_TOKEN}` },
+    },
   });
-
-  return createMCPClient({ transport });
 }
 
 /**

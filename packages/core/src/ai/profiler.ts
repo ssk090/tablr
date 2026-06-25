@@ -56,6 +56,7 @@ export function buildRawProfileInput(data: {
   company?: string;
   interests?: string[];
   linkedinUrl?: string;
+  githubUrl?: string;
 }): string {
   const parts: string[] = [];
 
@@ -66,6 +67,7 @@ export function buildRawProfileInput(data: {
   if (data.bio) parts.push(`Bio: ${data.bio}`);
   if (data.interests?.length) parts.push(`Interests: ${data.interests.join(", ")}`);
   if (data.linkedinUrl) parts.push(`LinkedIn: ${data.linkedinUrl}`);
+  if (data.githubUrl) parts.push(`GitHub: ${data.githubUrl}`);
 
   return parts.join("\n");
 }
