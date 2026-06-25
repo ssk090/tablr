@@ -4,10 +4,6 @@ import { prisma } from "@tablr/database";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 const SuggestionMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   text: z.string().max(2_000),
@@ -44,6 +40,10 @@ export async function POST(req: Request): Promise<Response> {
       .map((message) => `${message.role}: ${message.text}`)
       .join("\n");
 
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return Response.json({ suggestions: FALLBACK_SUGGESTIONS });
+
+    const openai = createOpenAI({ apiKey });
     const { output } = await generateText({
       model: openai("gpt-4o-mini"),
       output: Output.object({ schema: SuggestionsOutputSchema }),

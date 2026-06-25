@@ -1,8 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@tablr/database";
 import { streamText, convertToModelMessages, tool, zodSchema, stepCountIs } from "ai";
@@ -69,8 +65,17 @@ export async function POST(req: Request) {
       },
     });
 
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY is not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const openai = createOpenAI({ apiKey });
     const result = streamText({
-      model: openai("gpt-4o"), // Upgrade to gpt-4o for better multi-step reasoning
+      model: openai("gpt-4o"),
       messages: modelMessages,
       system: `You are the Tablr Concierge, a sophisticated AI for a high-end social dining platform in Bangalore.
       
