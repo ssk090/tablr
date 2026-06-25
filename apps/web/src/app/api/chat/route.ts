@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@tablr/database";
 import { streamText, convertToModelMessages, tool, zodSchema, stepCountIs } from "ai";
 import { z } from "zod";
@@ -40,6 +40,34 @@ function parseStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function todayInIndia(): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+}
+
+function normalizeRelativeDate(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  const base = todayInIndia();
+  const offset = normalized.includes("tomorrow") ? 1 : normalized.includes("tonight") || normalized === "today" ? 0 : undefined;
+  if (offset === undefined) return value;
+  base.setUTCDate(base.getUTCDate() + offset);
+  return base.toISOString().slice(0, 10);
+}
+
+function normalizeTimeSlot(value: string | undefined): "LUNCH" | "DINNER" | undefined {
+  if (!value) return undefined;
+  return value.trim().toUpperCase() === "LUNCH" ? "LUNCH" : "DINNER";
+}
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -51,9 +79,20 @@ export async function POST(req: Request) {
     const { messages, id: chatId } = json;
     
     // Fetch user profile for context
-    const profile = await prisma.profile.findUnique({
+    let profile = await prisma.profile.findUnique({
       where: { id: userId },
     });
+
+    if (!profile) {
+      const user = await currentUser();
+      const email = user?.emailAddresses[0]?.emailAddress;
+      const name = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "Tablr Guest";
+      profile = await prisma.profile.upsert({
+        where: { id: userId },
+        update: { name, email },
+        create: { id: userId, name, email, bio: "", diningPreferences: {} },
+      });
+    }
 
     console.log(`[Chat API] Received request for chat: ${chatId}, user: ${profile?.name}`);
 
@@ -122,6 +161,7 @@ export async function POST(req: Request) {
         console.log(">>>> [Tool: checkAvailableDiners] Called with params:", { area, date, timeSlot, preferredTime });
 
         try {
+        const normalizedDate = normalizeRelativeDate(date);
         const normalizedArea = area?.trim().toLowerCase();
         const normalizedPreferredTime = preferredTime?.trim();
 
@@ -130,8 +170,8 @@ export async function POST(req: Request) {
             where: {
               profileId: { not: userId },
               status: "OPEN",
-              ...(date ? { date } : {}),
-              ...(timeSlot ? { timeSlot: timeSlot.toUpperCase() as "LUNCH" | "DINNER" } : {}),
+              ...(normalizedDate ? { date: normalizedDate } : {}),
+              ...(timeSlot ? { timeSlot: normalizeTimeSlot(timeSlot) } : {}),
             },
             include: {
               profile: {
@@ -347,22 +387,28 @@ export async function POST(req: Request) {
         console.log(">>>> [Tool: recordDiningIntent] Called with params:", { area, date, timeSlot, preferredTime });
         
         try {
-          const normalizedTimeSlot = timeSlot.toUpperCase() as "LUNCH" | "DINNER";
+          const normalizedDate = normalizeRelativeDate(date) ?? date;
+          const normalizedTimeSlot = normalizeTimeSlot(timeSlot) ?? "DINNER";
+          const restaurant = await prisma.restaurant.findFirst({
+            where: { name: { contains: area, mode: "insensitive" } },
+            select: { area: true, name: true },
+          });
+          const resolvedArea = restaurant?.area ?? area;
           const existingIntent = await prisma.dinnerIntent.findFirst({
-            where: { profileId: userId, status: "OPEN", date, timeSlot: normalizedTimeSlot },
+            where: { profileId: userId, status: "OPEN", date: normalizedDate, timeSlot: normalizedTimeSlot },
             orderBy: { createdAt: "desc" },
           });
           const intent = existingIntent
             ? await prisma.dinnerIntent.update({
                 where: { id: existingIntent.id },
-                data: { preferredArea: area || existingIntent.preferredArea || "Anywhere", preferredTime },
+                data: { preferredArea: resolvedArea || existingIntent.preferredArea || "Anywhere", preferredTime },
               })
             : await prisma.dinnerIntent.create({
                 data: {
                   profileId: userId,
-                  date,
+                  date: normalizedDate,
                   timeSlot: normalizedTimeSlot,
-                  preferredArea: area || "Anywhere",
+                  preferredArea: resolvedArea || "Anywhere",
                   preferredTime,
                   status: "OPEN",
                 },
@@ -376,12 +422,13 @@ export async function POST(req: Request) {
           
           return {
             status: "success",
-            message: `${existingIntent ? "Updated" : "Recorded"} your interest for ${date} ${preferredTime ? `at ${preferredTime} ` : ""}${timeSlot} in ${area}. Searching for partners now.`,
+            message: `${existingIntent ? "Updated" : "Recorded"} your interest for ${normalizedDate} ${preferredTime ? `at ${preferredTime} ` : ""}${normalizedTimeSlot} in ${resolvedArea}${restaurant ? ` (${restaurant.name})` : ""}. Searching for partners now.`,
             intentId: intent.id
           };
         } catch (err) {
           console.error(">>>> [Tool: recordDiningIntent] Database error:", err);
-          return { status: "error", message: "Database failure" };
+          const message = err instanceof Error ? err.message : String(err);
+          return { status: "error", message: `Could not record dining intent: ${message}` };
         }
       },
     });

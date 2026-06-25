@@ -39,7 +39,12 @@ function nullableUrl(value: string | undefined): string | null {
 
 function isMissingSocialColumnError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("linkedin_url") || message.includes("github_url");
+  return (
+    message.includes("linkedin_url") ||
+    message.includes("github_url") ||
+    message.includes("Unknown argument `linkedinUrl`") ||
+    message.includes("Unknown argument `githubUrl`")
+  );
 }
 
 export async function saveProfile(userId: string, data: ProfileFormValues) {
