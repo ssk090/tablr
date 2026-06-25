@@ -2,6 +2,7 @@
 
 import { useUser, UserButton } from "@clerk/nextjs";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Handshake, MailCheck, MapPin, Sparkles, Users, Utensils } from "lucide-react";
 import Link from "next/link";
@@ -312,8 +313,17 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/70 py-20 text-center">
-        <div className="mx-auto max-w-7xl px-6">
+      <footer className="relative overflow-hidden border-t border-border/70 py-20 text-center">
+        <FlickeringGrid
+          aria-hidden="true"
+          className="absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
+          squareSize={4}
+          gridGap={8}
+          flickerChance={0.25}
+          color="rgb(154, 104, 19)"
+          maxOpacity={0.28}
+        />
+        <div className="relative mx-auto max-w-7xl px-6">
           <span className="font-serif text-xl font-bold tracking-tight text-foreground">
             Tablr<span className="text-primary">.</span>
           </span>
