@@ -2,7 +2,7 @@
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@tablr/database";
-import { generateProfileEmbedding, upsertProfileVector, ensureCollection, type Profile, type DiningPreferences, type SemanticProfile } from "@tablr/core";
+import { syncProfileVectorFromProfile, type DiningPreferences } from "@tablr/core";
 import type { ProfileFormValues } from "./schema";
 
 export async function syncProfile() {
@@ -51,34 +51,11 @@ export async function saveProfile(userId: string, data: ProfileFormValues) {
     },
   });
 
-  // Generate and upsert embedding for matching
-  try {
-    // Convert Prisma model to the type expected by core
-    const profileForEmbedding: Profile = {
-      ...updatedProfile,
-      professionalTitle: updatedProfile.professionalTitle ?? undefined,
-      company: updatedProfile.company ?? undefined,
-      email: updatedProfile.email ?? undefined,
-      linkedinUrl: updatedProfile.linkedinUrl ?? undefined,
-      interests: updatedProfile.interests as string[],
-      city: updatedProfile.city ?? "Bangalore",
-      diningPreferences: updatedProfile.diningPreferences as unknown as DiningPreferences,
-      semanticProfile: updatedProfile.semanticProfile as unknown as SemanticProfile,
-      isActive: updatedProfile.isActive ?? true,
-      createdAt: updatedProfile.createdAt.toISOString(),
-      updatedAt: updatedProfile.updatedAt.toISOString(),
-    };
-    
-    const vector = await generateProfileEmbedding(profileForEmbedding);
-    await ensureCollection();
-    await upsertProfileVector(userId, vector, {
-      name: updatedProfile.name,
-      title: updatedProfile.professionalTitle,
-    });
+  const vectorSync = await syncProfileVectorFromProfile(updatedProfile);
+  if (vectorSync.status === "synced") {
     console.log(`[Onboarding] Upserted vector for user: ${userId}`);
-  } catch (err) {
-    console.error("[Onboarding] Failed to update vector:", err);
-    // Don't fail the whole request if Qdrant/Ollama is down
+  } else {
+    console.error("[Onboarding] Failed to update vector:", vectorSync.error);
   }
 
   return { success: true };

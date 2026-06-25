@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { TablrDatabase } from "../db/database";
+import type { ProfileLookupPort } from "../db/domain-ports";
 import { searchSimilarProfiles } from "../db/qdrant";
 import type { CompatibilityScore, DiningCluster, Match, Profile } from "../types";
 import { generateProfileEmbedding } from "./embeddings";
@@ -8,7 +8,7 @@ import { generateProfileEmbedding } from "./embeddings";
  * Find compatible dining partners using Qdrant vector search.
  */
 export async function findMatches(
-  db: TablrDatabase,
+  db: ProfileLookupPort,
   profileId: string,
   options: { limit?: number; minScore?: number } = {},
 ): Promise<Match[]> {
@@ -50,7 +50,7 @@ export async function findMatches(
  * Form a dining cluster from the best matches for a profile.
  */
 export async function formCluster(
-  db: TablrDatabase,
+  db: ProfileLookupPort,
   profileId: string,
   options: { size?: number } = {},
 ): Promise<DiningCluster> {
@@ -116,7 +116,7 @@ export async function formCluster(
  * Uses Qdrant vector search for the overall semantic score.
  */
 export async function computeCompatibility(
-  db: TablrDatabase,
+  db: ProfileLookupPort,
   profileIdA: string,
   profileIdB: string,
 ): Promise<CompatibilityScore> {

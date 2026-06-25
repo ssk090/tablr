@@ -1,5 +1,5 @@
 import { prisma } from "@tablr/database";
-import { generateProfileEmbedding, searchSimilarProfiles, ensureCollection, type Profile, type DiningPreferences, type SemanticProfile } from "@tablr/core";
+import { generateProfileEmbedding, searchSimilarProfiles, ensureCollection, mapPrismaProfileToCoreProfile } from "@tablr/core";
 
 export async function triggerMatching(intentId: string) {
   console.log(`[Matching] Triggering for intent: ${intentId}`);
@@ -36,23 +36,7 @@ export async function triggerMatching(intentId: string) {
     const profile = intent.profile;
     console.log(`[Matching] Generating embedding for user: ${profile.name}`);
     
-    // Convert Prisma model to the type expected by core
-    const profileForEmbedding: Profile = {
-      ...profile,
-      professionalTitle: profile.professionalTitle ?? undefined,
-      company: profile.company ?? undefined,
-      email: profile.email ?? undefined,
-      linkedinUrl: profile.linkedinUrl ?? undefined,
-      interests: profile.interests as string[],
-      city: profile.city ?? "Bangalore",
-      diningPreferences: profile.diningPreferences as unknown as DiningPreferences,
-      semanticProfile: profile.semanticProfile as unknown as SemanticProfile,
-      isActive: profile.isActive ?? true,
-      createdAt: profile.createdAt.toISOString(),
-      updatedAt: profile.updatedAt.toISOString(),
-    };
-
-    const vector = await generateProfileEmbedding(profileForEmbedding);
+    const vector = await generateProfileEmbedding(mapPrismaProfileToCoreProfile(profile));
     console.log(`[Matching] Successfully generated embedding for ${profile.name}`);
     
     await ensureCollection();

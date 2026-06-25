@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { z } from "zod";
 import type { TablrDatabase } from '../db/database';
+import { assertCanConfirmBooking, canTriggerDineout, getInviteLifecycleStage } from '../events/invite-lifecycle';
 
 export function registerEventTools(server: McpServer, db: TablrDatabase): void {
   server.tool(
@@ -105,6 +106,7 @@ export function registerEventTools(server: McpServer, db: TablrDatabase): void {
         };
       }
       const members = db.getEventMembers(eventId);
+      const lifecycleStage = getInviteLifecycleStage({ event, members });
       const memberDetails = members.map((m) => {
         const p = db.getProfile(m.profileId);
         return { name: p?.name ?? "Unknown", status: m.status };
@@ -113,7 +115,7 @@ export function registerEventTools(server: McpServer, db: TablrDatabase): void {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ ...event, members: memberDetails }, null, 2),
+            text: JSON.stringify({ ...event, lifecycleStage, members: memberDetails }, null, 2),
           },
         ],
       };
@@ -127,7 +129,7 @@ export function registerEventTools(server: McpServer, db: TablrDatabase): void {
       eventId: z.string().describe("Event ID"),
       profileId: z.string().describe("Profile ID confirming"),
       action: z
-        .enum(["accept", "decline", "confirm_event", "cancel_event"])
+        .enum(["accept", "decline", "confirm_booking", "confirm_event", "cancel_event"])
         .describe("Action to take"),
     },
     async ({ eventId, profileId, action }) => {
@@ -156,9 +158,49 @@ export function registerEventTools(server: McpServer, db: TablrDatabase): void {
         };
       }
 
+      if (action === "confirm_booking") {
+        const members = db.getEventMembers(eventId);
+        try {
+          assertCanConfirmBooking({ event, members }, profileId);
+        } catch (error) {
+          return {
+            content: [{ type: "text" as const, text: error instanceof Error ? error.message : "Invalid booking confirmation." }],
+            isError: true,
+          };
+        }
+
+        db.addEventMember({
+          eventId,
+          profileId,
+          status: "booking_confirmed",
+          joinedAt: new Date().toISOString(),
+        });
+
+        const updatedMembers = db.getEventMembers(eventId);
+        const readyForDineout = canTriggerDineout({ event, members: updatedMembers });
+        if (readyForDineout) db.updateEventStatus(eventId, "confirmed");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: readyForDineout
+              ? `Booking confirmed by all members. Event ${eventId} is ready for Swiggy Dineout.`
+              : `Booking confirmation saved for ${profileId}. Waiting for other members.`,
+          }],
+        };
+      }
+
       if (action === "confirm_event" && profileId === event.createdBy) {
+        const members = db.getEventMembers(eventId);
+        const readyForDineout = canTriggerDineout({ event, members });
+        if (!readyForDineout) {
+          return {
+            content: [{ type: "text" as const, text: "All members must accept and confirm booking before the event can be confirmed." }],
+            isError: true,
+          };
+        }
         db.updateEventStatus(eventId, "confirmed");
-        return { content: [{ type: "text" as const, text: `Event ${eventId} confirmed!` }] };
+        return { content: [{ type: "text" as const, text: `Event ${eventId} confirmed and ready for Swiggy Dineout!` }] };
       }
 
       if (action === "cancel_event" && profileId === event.createdBy) {

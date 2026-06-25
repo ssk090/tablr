@@ -1,8 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { z } from "zod";
-import { findMatches } from '../ai/matchmaker';
 import type { TablrDatabase } from '../db/database';
-import { searchLocalRestaurants, suggestRestaurantsForGroup } from '../restaurants/discovery';
+import { processDinnerIntent } from '../dinner/dinner-matching-flow';
 
 export function registerDinnerIntentTools(server: McpServer, db: TablrDatabase): void {
   // ── looking_for_dinner ──────────────────────────────────────────
@@ -34,22 +33,7 @@ This is the PRIMARY entry point for the Tablr flow.`,
         const preferredArea = rawArgs.preferredArea;
         const groupSize = rawArgs.groupSize != null ? Number(rawArgs.groupSize) : 4;
 
-        // Validate profile exists
-        const profile = db.getProfile(profileId);
-        if (!profile) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Profile ${profileId} not found. Register first with register_profile.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        // Save the dinner intent
-        const intent = db.createDinnerIntent({
+        const result = await processDinnerIntent(db, {
           profileId,
           date,
           timeSlot,
@@ -57,163 +41,71 @@ This is the PRIMARY entry point for the Tablr flow.`,
           groupSize,
         });
 
-        // Check for other open intents on the same date
-        const otherIntents = db.findOpenIntents(date, profileId);
-
-        if (otherIntents.length === 0) {
+        if (result.status === "profile_not_found") {
           return {
-            content: [
-              {
-                type: "text" as const,
-                text: JSON.stringify(
-                  {
-                    status: "waiting",
-                    intentId: intent.id,
-                    message: `${profile.name} is looking for ${timeSlot} on ${date}${preferredArea ? ` in ${preferredArea}` : ""}. No other diners available yet — you'll be matched when someone else signals availability.`,
-                    date,
-                    timeSlot,
-                    preferredArea: preferredArea ?? "any",
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
+            content: [{ type: "text" as const, text: `Profile ${profileId} not found. Register first with register_profile.` }],
+            isError: true,
           };
         }
 
-        // There are other people looking! Find the most compatible ones
-        const matches = await findMatches(db, profileId, {
-          limit: groupSize - 1,
-          minScore: 0.2,
-        });
-
-        // Filter matches to only those who have open intents for this date
-        const intentProfileIds = new Set(otherIntents.map((i) => i.profileId));
-        const availableMatches = matches.filter((m) => intentProfileIds.has(m.profileId));
-
-        if (availableMatches.length === 0) {
+        if (result.status === "waiting") {
           return {
-            content: [
-              {
-                type: "text" as const,
-                text: JSON.stringify(
-                  {
-                    status: "waiting",
-                    intentId: intent.id,
-                    message: `${profile.name} is looking for ${timeSlot} on ${date}. ${otherIntents.length} other people are available but no strong compatibility matches. Lowering standards or waiting for more people may help.`,
-                    date,
-                    otherAvailable: otherIntents.length,
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                status: "waiting",
+                intentId: result.intent.id,
+                message: result.reason === "no_other_diners"
+                  ? `${result.profile.name} is looking for ${timeSlot} on ${date}${preferredArea ? ` in ${preferredArea}` : ""}. No other diners available yet — you'll be matched when someone else signals availability.`
+                  : `${result.profile.name} is looking for ${timeSlot} on ${date}. ${result.otherAvailable} other people are available but no strong compatibility matches. Lowering standards or waiting for more people may help.`,
+                date,
+                timeSlot,
+                preferredArea: preferredArea ?? "any",
+                otherAvailable: result.otherAvailable,
+              }, null, 2),
+            }],
           };
-        }
-
-        // We have matches! Suggest restaurants based on the group
-        const allProfileIds = [profileId, ...availableMatches.map((m) => m.profileId)];
-        const suggestedRestaurants = suggestRestaurantsForGroup(db, allProfileIds);
-
-        // Find area-specific restaurants if preferred
-        const areaRestaurants = preferredArea
-          ? searchLocalRestaurants(db, { area: preferredArea, groupSize: allProfileIds.length })
-          : [];
-
-        const restaurants =
-          suggestedRestaurants.length > 0 ? suggestedRestaurants : areaRestaurants;
-
-        // Create a dining event automatically
-        const topRestaurant = restaurants[0];
-        let event = null;
-
-        if (topRestaurant) {
-          event = db.createEvent({
-            restaurantId: topRestaurant.id,
-            restaurantName: topRestaurant.name,
-            status: "forming",
-            scheduledDate: date,
-            scheduledTime: timeSlot === "dinner" ? "19:30" : "12:30",
-            guestCount: allProfileIds.length,
-            createdBy: profileId,
-          });
-
-          // Add all members — organizer accepted, others invited
-          const now = new Date().toISOString();
-          db.addEventMember({ eventId: event.id, profileId, status: "accepted", joinedAt: now });
-          for (const match of availableMatches) {
-            db.addEventMember({
-              eventId: event.id,
-              profileId: match.profileId,
-              status: "invited",
-              joinedAt: now,
-            });
-          }
-
-          // Mark all intents as matched
-          db.updateIntentStatus(intent.id, "matched", event.id);
-          db.createNotification({ profileId, type: "match_found", targetId: event.id });
-
-          for (const otherIntent of otherIntents) {
-            if (availableMatches.some((m) => m.profileId === otherIntent.profileId)) {
-              db.updateIntentStatus(otherIntent.id, "matched", event.id);
-              db.createNotification({
-                profileId: otherIntent.profileId,
-                type: "match_found",
-                targetId: event.id,
-              });
-            }
-          }
         }
 
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(
-                {
-                  status: "matched",
-                  intentId: intent.id,
-                  message: `🎉 Match found! ${availableMatches.length} compatible diner(s) are also available on ${date}.`,
-                  group: {
-                    organizer: profile.name,
-                    members: availableMatches.map((m) => ({
-                      name: m.name,
-                      compatibilityScore: m.score,
-                      reasons: m.reasons,
-                    })),
-                  },
-                  suggestedRestaurant: topRestaurant
-                    ? {
-                        name: topRestaurant.name,
-                        area: topRestaurant.area,
-                        cuisine: topRestaurant.cuisine,
-                        rating: topRestaurant.rating,
-                        costForTwo: `₹${topRestaurant.costForTwo}`,
-                      }
-                    : null,
-                  event: event
-                    ? {
-                        eventId: event.id,
-                        date: event.scheduledDate,
-                        time: event.scheduledTime,
-                        restaurant: event.restaurantName,
-                        status: event.status,
-                      }
-                    : null,
-                  nextSteps: [
-                    event ? "Invited members should use 'confirm_event' to accept/decline" : null,
-                    "Use Swiggy Dineout tools to book a real table: search_restaurants_dineout → get_available_slots → book_table",
-                    "Once all members confirm, the event status will be updated to 'confirmed'",
-                  ].filter(Boolean),
-                },
-                null,
-                2,
-              ),
-            },
-          ],
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              status: "matched",
+              intentId: result.intent.id,
+              message: `🎉 Match found! ${result.matches.length} compatible diner(s) are also available on ${date}.`,
+              group: {
+                organizer: result.profile.name,
+                members: result.matches.map((match) => ({
+                  name: match.name,
+                  compatibilityScore: match.score,
+                  reasons: match.reasons,
+                })),
+              },
+              suggestedRestaurant: result.restaurant
+                ? {
+                    name: result.restaurant.name,
+                    area: result.restaurant.area,
+                    cuisine: result.restaurant.cuisine,
+                    rating: result.restaurant.rating,
+                    costForTwo: `₹${result.restaurant.costForTwo}`,
+                  }
+                : null,
+              event: result.event
+                ? {
+                    eventId: result.event.id,
+                    date: result.event.scheduledDate,
+                    time: result.event.scheduledTime,
+                    restaurant: result.event.restaurantName,
+                    status: result.event.status,
+                  }
+                : null,
+              nextSteps: [
+                result.event ? "Invited members should accept/decline, then both diners confirm booking before Dineout is triggered" : null,
+                "Only trigger Swiggy Dineout after mutual acceptance and booking confirmation.",
+              ].filter(Boolean),
+            }, null, 2),
+          }],
         };
       } catch (error) {
         return {

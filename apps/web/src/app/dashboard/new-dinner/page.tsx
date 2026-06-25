@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   clearChatHistory,
   deleteMessage,
@@ -28,6 +28,8 @@ import {
   Sparkle,
   Command,
   Terminal,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "../../../components/design-system/atoms";
 import { Ripple } from "@/components/ui/ripple";
@@ -102,12 +104,12 @@ function getMessageText(message: Message): string {
     .join("");
 }
 
-const SUGGESTIONS = [
+const FALLBACK_SUGGESTIONS = [
   "did you find any match ?",
   "anyone looking for dinner ?",
   "where is my dinner ?",
   "cancel my request",
-];
+] as const;
 
 // Tool call types for AI SDK v6
 interface ToolCallPart {
@@ -318,7 +320,9 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
   const [editValue, setEditValue] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const [suggestions, setSuggestions] = useState<readonly string[]>(FALLBACK_SUGGESTIONS);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const suggestionsScrollRef = useRef<HTMLDivElement>(null);
 
   // Prepare initial messages
   const initialMessages = useMemo((): Message[] => {
@@ -342,6 +346,24 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
 
   const isSending = status === "streaming" || status === "submitted";
 
+  const sendText = useCallback(
+    async (text: string): Promise<void> => {
+      const trimmedText = text.trim();
+      if (!trimmedText || isSending) return;
+
+      setLocalInput("");
+
+      try {
+        console.log("[UI] Sending message to session:", chatSession.id, trimmedText);
+        await sendMessage({ text: trimmedText });
+      } catch (error) {
+        console.error("Failed to send message:", error);
+        setLocalInput(trimmedText);
+      }
+    },
+    [chatSession.id, isSending, sendMessage],
+  );
+
   // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
@@ -355,19 +377,63 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!localInput.trim() || isSending) return;
-
-    const text = localInput;
-    setLocalInput("");
-
-    try {
-      console.log("[UI] Sending message to session:", chatSession.id, text);
-      await sendMessage({ text });
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      setLocalInput(text);
-    }
+    await sendText(localInput);
   };
+
+  const scrollSuggestions = (direction: "left" | "right"): void => {
+    suggestionsScrollRef.current?.scrollBy({
+      left: direction === "left" ? -280 : 280,
+      behavior: "smooth",
+    });
+  };
+
+  useEffect(() => {
+    if (isSending) return;
+
+    if (messages.length === 0) {
+      setSuggestions(FALLBACK_SUGGESTIONS);
+      return;
+    }
+
+    const abortController = new AbortController();
+    const suggestionMessages = messages
+      .slice(-8)
+      .map((message) => ({
+        role: message.role,
+        text: getMessageText(message),
+      }))
+      .filter((message) => message.text.trim().length > 0);
+
+    if (suggestionMessages.length === 0) return;
+
+    const fetchSuggestions = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/chat/suggestions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: suggestionMessages }),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`suggestions request failed: ${response.status}`);
+        }
+
+        const data = (await response.json()) as { suggestions?: string[] };
+        if (data.suggestions?.length) {
+          setSuggestions(data.suggestions);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("Failed to fetch suggestions:", error);
+        setSuggestions(FALLBACK_SUGGESTIONS);
+      }
+    };
+
+    void fetchSuggestions();
+
+    return () => abortController.abort();
+  }, [isSending, messages]);
 
   const handleClearHistory = async () => {
     if (messages.length === 0 || isClearingHistory) return;
@@ -376,6 +442,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     try {
       await clearChatHistory();
       setMessages([]);
+      setSuggestions(FALLBACK_SUGGESTIONS);
       setActiveMenuId(null);
       await queryClient.invalidateQueries({ queryKey: ["chat-session"] });
     } catch (err) {
@@ -497,7 +564,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
       {/* Chat Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-8 py-10 scroll-smooth pb-40 custom-scrollbar"
+        className="flex-1 min-h-0 overflow-y-auto px-8 py-10 scroll-smooth custom-scrollbar"
       >
         <div className="mx-auto max-w-3xl space-y-10">
           <AnimatePresence>
@@ -809,25 +876,56 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
       </div>
 
       {/* Input Area */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-background via-background/90 to-transparent pt-20 pb-8 px-8">
+      <div className="shrink-0 z-30 border-t border-border/60 bg-background/95 px-8 pb-8 pt-4 backdrop-blur-2xl">
         <div className="mx-auto max-w-3xl mb-4">
-          <div className="flex flex-wrap gap-2 justify-center">
-            {SUGGESTIONS.map((suggestion) => (
-              <button
-                key={suggestion}
-                onClick={() => {
-                  setLocalInput(suggestion);
-                  // Use setTimeout to ensure localInput state is updated before submit
-                  setTimeout(() => {
-                    const form = document.querySelector("form");
-                    if (form) form.requestSubmit();
-                  }, 0);
-                }}
-                className="rounded-full bg-muted/50 border border-border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all active:scale-95"
-              >
-                {suggestion}
-              </button>
-            ))}
+          <div className="relative flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollSuggestions("left")}
+              className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background/90 text-muted-foreground shadow-xl backdrop-blur-xl transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary active:scale-95"
+              aria-label="Scroll suggestions left"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <div className="pointer-events-none absolute left-10 top-0 bottom-0 z-10 w-10 bg-gradient-to-r from-background to-transparent" />
+            <div
+              ref={suggestionsScrollRef}
+              className="flex flex-1 snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={suggestions.join("|")}
+                  initial={{ opacity: 0, y: 4, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -4, filter: "blur(4px)" }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  className="flex gap-2"
+                >
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      disabled={isSending}
+                      onClick={() => void sendText(suggestion)}
+                      className="snap-start whitespace-nowrap rounded-full bg-muted/50 border border-border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            <div className="pointer-events-none absolute right-10 top-0 bottom-0 z-10 w-10 bg-gradient-to-l from-background to-transparent" />
+
+            <button
+              type="button"
+              onClick={() => scrollSuggestions("right")}
+              className="z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background/90 text-muted-foreground shadow-xl backdrop-blur-xl transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary active:scale-95"
+              aria-label="Scroll suggestions right"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         </div>
         <form onSubmit={onSubmit} className="mx-auto max-w-3xl relative">

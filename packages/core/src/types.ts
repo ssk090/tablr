@@ -62,7 +62,7 @@ export type DiningEvent = z.infer<typeof DiningEventSchema>;
 export interface EventMember {
   readonly eventId: string;
   readonly profileId: string;
-  readonly status: "invited" | "accepted" | "declined";
+  readonly status: "invited" | "accepted" | "declined" | "booking_confirmed";
   readonly joinedAt: string;
 }
 

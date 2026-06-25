@@ -1,4 +1,5 @@
 import type { TablrDatabase } from '../db/database';
+import type { RestaurantDiscoveryPort } from '../db/domain-ports';
 import type { Restaurant, RestaurantSearchCriteria } from '../types';
 import { BANGALORE_RESTAURANTS } from './seed-data';
 
@@ -19,7 +20,7 @@ export function seedRestaurantsIfEmpty(db: TablrDatabase): void {
  * This is the fallback when Swiggy Dineout MCP is not available.
  */
 export function searchLocalRestaurants(
-  db: TablrDatabase,
+  db: RestaurantDiscoveryPort,
   criteria: RestaurantSearchCriteria,
 ): Restaurant[] {
   return db.searchRestaurants({
@@ -36,7 +37,7 @@ export function searchLocalRestaurants(
  * Aggregates dining preferences from all group members and finds
  * the best matching venues.
  */
-export function suggestRestaurantsForGroup(db: TablrDatabase, profileIds: string[]): Restaurant[] {
+export function suggestRestaurantsForGroup(db: RestaurantDiscoveryPort, profileIds: string[]): Restaurant[] {
   const cuisineCounts = new Map<string, number>();
   const areaCounts = new Map<string, number>();
   let totalBudget = 0;

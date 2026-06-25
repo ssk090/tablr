@@ -1,6 +1,7 @@
 "use client";
 
 import { useUser, UserButton } from "@clerk/nextjs";
+import { FeatureCard, GlassPanel, LandingSection } from "@/components/design-system/atoms";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import { motion } from "framer-motion";
@@ -199,21 +200,12 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="relative scroll-mt-24 py-32">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mx-auto mb-16 max-w-3xl text-center">
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.3em] text-accent">
-              How it works
-            </p>
-            <h2 className="mb-6 font-serif text-4xl font-bold text-foreground md:text-6xl">
-              Match first. Book only when everyone says yes.
-            </h2>
-            <p className="text-lg leading-relaxed text-muted-foreground">
-              Tablr is people-first: discover compatible Bangalore diners by cuisine,
-              neighbourhood, interests, and vibe before the restaurant reservation begins.
-            </p>
-          </div>
-
+      <LandingSection
+        id="how-it-works"
+        eyebrow="How it works"
+        title="Match first. Book only when everyone says yes."
+        description="Tablr is people-first: discover compatible Bangalore diners by cuisine, neighbourhood, interests, and vibe before the restaurant reservation begins."
+      >
           <div className="grid gap-8 md:grid-cols-4">
             {[
               {
@@ -243,21 +235,12 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15 }}
-                className="group relative overflow-hidden rounded-3xl border border-border/70 bg-secondary/30 p-8 transition-all hover:-translate-y-1 hover:border-border hover:bg-secondary/50"
               >
-                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all group-hover:scale-110 group-hover:bg-primary/20">
-                  {feature.icon}
-                </div>
-                <h3 className="mb-4 font-serif text-2xl font-bold text-foreground">
-                  {feature.title}
-                </h3>
-                <p className="text-muted-foreground">{feature.desc}</p>
-                <div className="absolute bottom-0 left-0 h-1 w-0 bg-primary transition-all duration-500 group-hover:w-full" />
+                <FeatureCard icon={feature.icon} title={feature.title} description={feature.desc} />
               </motion.div>
             ))}
           </div>
-        </div>
-      </section>
+      </LandingSection>
 
       {/* Community */}
       <section id="community" className="relative scroll-mt-24 overflow-hidden py-32">
@@ -301,11 +284,12 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12 }}
-                className="rounded-3xl border border-border/70 bg-secondary/30 p-6 backdrop-blur-md transition-colors hover:border-border hover:bg-secondary/50"
               >
-                <Handshake className="mb-5 h-7 w-7 text-accent" />
-                <h3 className="mb-3 font-serif text-xl font-bold text-foreground">{title}</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
+                <GlassPanel>
+                  <Handshake className="mb-5 h-7 w-7 text-accent" />
+                  <h3 className="mb-3 font-serif text-xl font-bold text-foreground">{title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
+                </GlassPanel>
               </motion.div>
             ))}
           </div>
