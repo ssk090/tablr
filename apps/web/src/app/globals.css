@@ -1,50 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  /* Silk Cream Light Background */
-  --background: #fbf7ec;
-  --foreground: #140f0f;
+  color-scheme: light;
 
-  /* Brand Colors */
-  --primary: #4a0e0e; /* Vintage Bordeaux */
-  --primary-foreground: #f5f5dc;
+  /* Warm dining-room light palette */
+  --background: #fff8ec;
+  --foreground: #241713;
 
-  --secondary: #f1e7d2;
-  --secondary-foreground: #140f0f;
+  /* Accessible brand colors: claret for actions, saffron for warmth */
+  --primary: #8f2f24;
+  --primary-foreground: #fff8ec;
 
-  --accent: #9f7b13; /* Champagne Gold, darkened for light-mode contrast */
-  --accent-foreground: #140f0f;
+  --secondary: #f4e5cf;
+  --secondary-foreground: #241713;
 
-  --muted: #efe6d5;
-  --muted-foreground: #6b6258;
+  --accent: #9a6813;
+  --accent-foreground: #fff8ec;
 
-  --border: #e4d3b7;
-  --input: #f1e7d2;
-  --ring: #9f7b13;
+  --muted: #efe2d0;
+  --muted-foreground: #6a5148;
+
+  --destructive: #b42318;
+  --destructive-foreground: #fff8ec;
+
+  --border: #dcc6aa;
+  --input: #f4e5cf;
+  --ring: #b85a2b;
 
   --radius: 0.75rem;
 }
 
 .dark {
-  /* Charcoal Noir Background */
-  --background: #0a0a0a;
-  --foreground: #f5f5dc; /* Silk Cream */
+  color-scheme: dark;
 
-  --primary: #4a0e0e; /* Vintage Bordeaux */
-  --primary-foreground: #f5f5dc;
+  /* Charcoal noir with warm, low-glare contrast */
+  --background: #100d0b;
+  --foreground: #f7ead7;
 
-  --secondary: #1a1a1a;
-  --secondary-foreground: #f5f5dc;
+  /* Lifted claret so red accents remain readable on black */
+  --primary: #ff8a73;
+  --primary-foreground: #2b0905;
 
-  --accent: #d4af37; /* Champagne Gold */
-  --accent-foreground: #0a0a0a;
+  --secondary: #211916;
+  --secondary-foreground: #f7ead7;
 
-  --muted: #1a1a1a;
-  --muted-foreground: #a1a1aa;
+  --accent: #f0c96a;
+  --accent-foreground: #1d1406;
 
-  --border: #2a1a1a;
-  --input: #1a1a1a;
-  --ring: #d4af37;
+  --muted: #211916;
+  --muted-foreground: #c4b19f;
+
+  --destructive: #ff9a8a;
+  --destructive-foreground: #300a06;
+
+  --border: #3b2b25;
+  --input: #211916;
+  --ring: #f0c96a;
 }
 
 @theme inline {
@@ -58,6 +69,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

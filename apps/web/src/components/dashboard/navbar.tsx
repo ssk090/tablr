@@ -22,7 +22,7 @@ export function DashboardNavbar() {
           <Link href="/" className="group flex items-center gap-2">
             <span className="font-serif text-2xl font-bold tracking-tight">
               Tablr
-              <span className="text-primary group-hover:text-red-500 transition-colors">.</span>
+              <span className="text-primary transition-colors group-hover:text-accent">.</span>
             </span>
           </Link>
 
@@ -40,7 +40,7 @@ export function DashboardNavbar() {
                   <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
                   {item.label}
                   {isActive && (
-                    <span className="h-1 w-1 rounded-full bg-primary shadow-[0_0_8px_rgba(139,26,26,0.6)]" />
+                    <span className="h-1 w-1 rounded-full bg-primary shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_55%,transparent)]" />
                   )}
                 </Link>
               );

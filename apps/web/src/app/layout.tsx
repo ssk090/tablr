@@ -36,6 +36,7 @@ export default function RootLayout({
         className={`${fraunces.variable} ${plusJakartaSans.variable} h-full antialiased dark`}
       >
         <head>
+          <meta name="color-scheme" content="light dark" />
           <script
             dangerouslySetInnerHTML={{
               __html: `try{const theme=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",theme?theme==="dark":true)}catch{}`,

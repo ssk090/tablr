@@ -83,7 +83,7 @@ export default function OnboardingForm({ userId }: { userId: string }) {
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${((step - 1) / 2) * 100}%` }}
-            className="h-full bg-primary shadow-[0_0_10px_rgba(139,26,26,0.4)]"
+            className="h-full bg-primary shadow-[0_0_10px_color-mix(in_srgb,var(--primary)_40%,transparent)]"
           />
         </div>
 
@@ -94,12 +94,12 @@ export default function OnboardingForm({ userId }: { userId: string }) {
               initial={false}
               animate={{
                 scale: step === s ? 1.2 : 1,
-                backgroundColor: step >= s ? "hsl(var(--primary))" : "rgb(10, 10, 10)",
-                borderColor: step >= s ? "hsl(var(--primary))" : "rgba(255, 255, 255, 0.1)",
+                backgroundColor: step >= s ? "var(--primary)" : "var(--background)",
+                borderColor: step >= s ? "var(--primary)" : "var(--border)",
               }}
               className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-all ${
                 step >= s
-                  ? "text-primary-foreground shadow-[0_0_15px_rgba(139,26,26,0.3)]"
+                  ? "text-primary-foreground shadow-[0_0_15px_color-mix(in_srgb,var(--primary)_35%,transparent)]"
                   : "text-muted-foreground"
               }`}
             >
@@ -150,9 +150,9 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                          className="flex items-center gap-2 text-sm font-medium text-destructive"
                         >
-                          <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                          <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                           {field.state.meta.errors[0]?.toString().includes("[object Object]")
                             ? (field.state.meta.errors[0] as { message?: string }).message
                             : field.state.meta.errors[0]?.toString()}
@@ -175,9 +175,9 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                          className="flex items-center gap-2 text-sm font-medium text-destructive"
                         >
-                          <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                          <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                           {field.state.meta.errors[0]?.toString().includes("[object Object]")
                             ? (field.state.meta.errors[0] as { message?: string }).message
                             : field.state.meta.errors[0]?.toString()}
@@ -200,9 +200,9 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                          className="flex items-center gap-2 text-sm font-medium text-destructive"
                         >
-                          <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                          <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                           {field.state.meta.errors[0]?.toString().includes("[object Object]")
                             ? (field.state.meta.errors[0] as { message?: string }).message
                             : field.state.meta.errors[0]?.toString()}
@@ -268,7 +268,7 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                             }}
                             className={`rounded-full border px-6 py-3 text-sm font-bold transition-all ${
                               field.state.value.includes(c)
-                                ? "border-red-500/50 bg-[#8b1a1a] text-primary-foreground shadow-[0_0_25px_rgba(139,26,26,0.6),inset_0_0_10px_rgba(255,255,255,0.1)]"
+                                ? "border-primary/50 bg-primary text-primary-foreground shadow-[0_0_25px_color-mix(in_srgb,var(--primary)_45%,transparent),inset_0_0_10px_rgba(255,255,255,0.1)]"
                                 : "border-white/20 bg-white/[0.03] text-muted-foreground/80 hover:border-white/40 hover:bg-white/[0.06]"
                             }`}
                           >
@@ -369,9 +369,9 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                          className="flex items-center gap-2 text-sm font-medium text-destructive"
                         >
-                          <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                          <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                           {field.state.meta.errors[0]?.toString().includes("[object Object]")
                             ? (field.state.meta.errors[0] as { message?: string }).message
                             : field.state.meta.errors[0]?.toString()}

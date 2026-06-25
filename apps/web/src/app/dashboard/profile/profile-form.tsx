@@ -105,9 +105,9 @@ export function ProfileForm({ userId }: { userId: string }) {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                    className="flex items-center gap-2 text-sm font-medium text-destructive"
                   >
-                    <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                     {field.state.meta.errors[0]?.toString()}
                   </motion.div>
                 )}
@@ -129,9 +129,9 @@ export function ProfileForm({ userId }: { userId: string }) {
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                      className="flex items-center gap-2 text-sm font-medium text-destructive"
                     >
-                      <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                       {field.state.meta.errors[0]?.toString()}
                     </motion.div>
                   )}
@@ -152,9 +152,9 @@ export function ProfileForm({ userId }: { userId: string }) {
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                      className="flex items-center gap-2 text-sm font-medium text-destructive"
                     >
-                      <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                       {field.state.meta.errors[0]?.toString()}
                     </motion.div>
                   )}
@@ -178,9 +178,9 @@ export function ProfileForm({ userId }: { userId: string }) {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 text-sm font-medium text-red-400/90"
+                    className="flex items-center gap-2 text-sm font-medium text-destructive"
                   >
-                    <div className="h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.6)]" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-destructive shadow-[0_0_8px_color-mix(in_srgb,var(--destructive)_45%,transparent)]" />
                     {field.state.meta.errors[0]?.toString()}
                   </motion.div>
                 )}
@@ -211,7 +211,7 @@ export function ProfileForm({ userId }: { userId: string }) {
                         }}
                         className={`rounded-full border px-6 py-2.5 text-sm font-bold transition-all ${
                           isSelected
-                            ? "border-red-500/50 bg-[#8b1a1a] text-primary-foreground shadow-[0_0_20px_rgba(139,26,26,0.4)]"
+                            ? "border-primary/50 bg-primary text-primary-foreground shadow-[0_0_20px_color-mix(in_srgb,var(--primary)_40%,transparent)]"
                             : "border-white/10 bg-white/[0.02] text-muted-foreground/60 hover:border-white/30"
                         }`}
                       >
