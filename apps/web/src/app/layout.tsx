@@ -43,7 +43,7 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+        <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground font-sans">
           <QueryProvider>
             <div className="relative min-h-screen">
               <div className="pointer-events-none fixed inset-0 z-50 bg-[url('/noise.png')] opacity-[0.03]" />

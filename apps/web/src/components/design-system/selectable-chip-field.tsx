@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Plus, X } from "lucide-react";
-import { type FormEvent, type ReactElement, useState } from "react";
+import { type KeyboardEvent, type ReactElement, useState } from "react";
 import { Input, Label, cn } from "./atoms";
 
 function normalizeOption(value: string): string {
@@ -62,11 +62,16 @@ export function SelectableChipField({
     onChange(addUniqueOption(value, option));
   }
 
-  function addCustomOption(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
+  function addCustomOption(): void {
     const nextValue = addUniqueOption(value, customValue);
     onChange(nextValue);
     setCustomValue("");
+  }
+
+  function submitCustomOptionFromKeyboard(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addCustomOption();
   }
 
   return (
@@ -109,21 +114,23 @@ export function SelectableChipField({
         </AnimatePresence>
       </div>
 
-      <form onSubmit={addCustomOption} className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <Input
           value={customValue}
           onChange={(event) => setCustomValue(event.target.value)}
+          onKeyDown={submitCustomOptionFromKeyboard}
           placeholder={customPlaceholder}
           className="sm:max-w-sm"
         />
         <button
-          type="submit"
+          type="button"
           disabled={!normalizeOption(customValue)}
+          onClick={addCustomOption}
           className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background/70 px-5 py-3 text-sm font-bold text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/30 dark:hover:bg-white/[0.06]"
         >
           <Plus className="h-4 w-4" /> Add custom
         </button>
-      </form>
+      </div>
     </div>
   );
 }
