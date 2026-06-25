@@ -15,7 +15,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full rounded-2xl border border-white/10 bg-white/5 p-4 transition-all focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/30",
+        "w-full rounded-2xl border border-border bg-background/70 p-4 text-foreground shadow-sm transition-all placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:bg-white/5",
         className,
       )}
       {...props}
@@ -49,7 +49,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-3xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-xl",
+        "rounded-3xl border border-border/80 bg-secondary/25 p-8 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.02]",
         className,
       )}
     >

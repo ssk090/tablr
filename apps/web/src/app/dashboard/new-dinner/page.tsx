@@ -177,6 +177,7 @@ function ToolCallDisplay({
   const toolIcon =
     {
       recordDiningIntent: ChefHat,
+      checkAvailableDiners: Sparkles,
     }[toolCall.toolName] || Cog;
 
   const ToolIcon = toolIcon;
@@ -298,18 +299,136 @@ function ToolCallDisplay({
                 Response
               </p>
             </div>
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-emerald-500/5 blur-lg rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative rounded-2xl bg-emerald-500/[0.03] border border-emerald-500/10 p-4">
-                <p className="text-sm font-medium text-emerald-400/90 leading-relaxed italic">
-                  "{String(result.result)}"
-                </p>
-              </div>
-            </div>
+            <ToolResultView toolName={toolCall.toolName} result={result.result} />
           </motion.div>
         )}
       </div>
     </motion.div>
+  );
+}
+
+function ToolResultView({ toolName, result }: { toolName: string; result: unknown }) {
+  if (toolName === "findRestaurants" && result && typeof result === "object") {
+    const data = result as {
+      message?: string;
+      restaurants?: Array<{
+        id: string;
+        name: string;
+        area: string;
+        cuisine?: string[];
+        rating?: number;
+        costForTwo?: number;
+        ambiance?: string[];
+        highlights?: string[];
+      }>;
+    };
+
+    return (
+      <div className="space-y-3">
+        <div className="rounded-2xl bg-emerald-500/[0.03] border border-emerald-500/10 p-4">
+          <p className="text-sm font-semibold text-emerald-400/90">{data.message ?? "Here are a few spots."}</p>
+        </div>
+        {data.restaurants?.map((restaurant) => (
+          <div key={restaurant.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-bold text-foreground">{restaurant.name}</p>
+                <p className="text-xs text-muted-foreground">{restaurant.area}</p>
+              </div>
+              {restaurant.rating != null && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary">★ {restaurant.rating}</span>}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {[...(restaurant.cuisine ?? []), ...(restaurant.ambiance ?? []), ...(restaurant.highlights ?? [])].slice(0, 5).join(" · ")}
+            </p>
+            {restaurant.costForTwo != null && <p className="mt-2 text-xs text-primary">₹{restaurant.costForTwo} for two</p>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (toolName === "checkAvailableDiners" && result && typeof result === "object") {
+    const data = result as {
+      message?: string;
+      matchCount?: number;
+      cards?: Array<{
+        profileId: string;
+        name: string;
+        professionalTitle?: string | null;
+        company?: string | null;
+        preferredCuisines?: string[];
+        preferredNeighborhoods?: string[];
+        diningIntent?: { date?: string; timeSlot?: string; preferredArea?: string | null };
+        profilePath?: string;
+      }>;
+    };
+
+    return (
+      <div className="space-y-3">
+        <div className="rounded-2xl bg-emerald-500/[0.03] border border-emerald-500/10 p-4">
+          <p className="text-sm font-semibold text-emerald-400/90">{data.message ?? `Found ${data.matchCount ?? 0} matches.`}</p>
+        </div>
+        {data.cards?.map((card) => (
+          <a
+            key={card.profileId}
+            href={card.profilePath ?? `/dashboard/profiles/${card.profileId}`}
+            className="block rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:bg-white/[0.06]"
+          >
+            <p className="font-bold text-foreground">{card.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {[card.professionalTitle, card.company].filter(Boolean).join(" · ") || "Tablr member"}
+            </p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {card.diningIntent?.timeSlot} · {card.diningIntent?.date ?? "any date"} · {card.diningIntent?.preferredArea ?? "flexible area"}
+            </p>
+            <p className="mt-2 text-xs text-primary">
+              {[...(card.preferredCuisines ?? []), ...(card.preferredNeighborhoods ?? [])].slice(0, 5).join(" · ")}
+            </p>
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  const text = typeof result === "string" ? result : JSON.stringify(result);
+  return (
+    <div className="relative rounded-2xl bg-emerald-500/[0.03] border border-emerald-500/10 p-4">
+      <p className="text-sm font-medium text-emerald-400/90 leading-relaxed italic">{text}</p>
+    </div>
+  );
+}
+
+function FormattedAssistantText({ text }: { text: string }) {
+  const itemRegex = /(\d+)\.\s+\*\*([^*]+)\*\*\s*-\s*([^\d]+?)(?=\s+\d+\.\s+\*\*|$)/g;
+  const items = [...text.matchAll(itemRegex)].map((match) => ({
+    number: match[1],
+    title: match[2],
+    description: match[3].trim(),
+  }));
+
+  if (items.length === 0) return <>{text}</>;
+
+  const intro = text.slice(0, text.indexOf(`${items[0].number}.`)).trim();
+
+  return (
+    <div className="space-y-4">
+      {intro && <p>{intro}</p>}
+      <div className="grid gap-3">
+        {items.map((item) => (
+          <div key={`${item.number}-${item.title}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-black text-primary">
+                {item.number}
+              </span>
+              <div>
+                <p className="font-bold text-foreground">{item.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -709,7 +828,11 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                                 : "text-primary-foreground",
                             )}
                           >
-                            {getMessageText(message)}
+                            {message.role === "assistant" ? (
+                              <FormattedAssistantText text={getMessageText(message)} />
+                            ) : (
+                              getMessageText(message)
+                            )}
                           </div>
                         )}
 

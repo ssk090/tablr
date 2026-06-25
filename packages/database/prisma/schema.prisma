@@ -14,6 +14,7 @@ model Profile {
   company           String?
   email             String?  @unique
   linkedinUrl       String?  @map("linkedin_url")
+  githubUrl         String?  @map("github_url")
   interests         Json     @default("[]")
   city              String   @default("Bangalore")
   diningPreferences Json     @default("{}") @map("dining_preferences")
@@ -141,9 +142,10 @@ model EventMember {
 }
 
 enum MemberStatus {
-  INVITED  @map("invited")
-  JOINED   @map("joined")
-  DECLINED @map("declined")
+  INVITED           @map("invited")
+  ACCEPTED          @map("accepted")
+  DECLINED          @map("declined")
+  BOOKING_CONFIRMED @map("booking_confirmed")
 }
 
 model Feedback {
@@ -166,6 +168,7 @@ model DinnerIntent {
   date           String
   timeSlot       TimeSlot     @default(DINNER) @map("time_slot")
   preferredArea  String?      @map("preferred_area")
+  preferredTime  String?      @map("preferred_time")
   groupSize      Int          @default(4) @map("group_size")
   status         IntentStatus @default(OPEN)
   matchedEventId String?      @map("matched_event_id")

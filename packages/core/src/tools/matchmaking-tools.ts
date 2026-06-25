@@ -45,12 +45,25 @@ export function registerMatchmakingTools(server: McpServer, db: TablrDatabase): 
               text: JSON.stringify(
                 {
                   matchCount: matches.length,
-                  matches: matches.map((m) => ({
-                    profileId: m.profileId,
-                    name: m.name,
-                    compatibilityScore: m.score,
-                    reasons: m.reasons,
-                  })),
+                  response: `I found ${matches.length} compatible match${matches.length === 1 ? "" : "es"}. Here are the top profile cards.`,
+                  cards: matches.map((m) => {
+                    const profile = db.getProfile(m.profileId);
+                    return {
+                      profileId: m.profileId,
+                      name: m.name,
+                      professionalTitle: profile?.professionalTitle,
+                      company: profile?.company,
+                      linkedinUrl: profile?.linkedinUrl,
+                      githubUrl: profile?.githubUrl,
+                      sharedInterests: profile?.interests ?? [],
+                      preferredCuisines: profile?.diningPreferences.cuisines ?? [],
+                      preferredNeighborhoods: profile?.diningPreferences.preferredAreas ?? [],
+                      compatibilityScore: m.score,
+                      compatibilityReason: m.reasons.join(" "),
+                      profilePath: `/dashboard/profiles/${m.profileId}`,
+                      sendInviteAction: "send_invite",
+                    };
+                  }),
                 },
                 null,
                 2,

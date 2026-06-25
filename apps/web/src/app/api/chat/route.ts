@@ -6,6 +6,40 @@ import { z } from "zod";
 import { triggerMatching } from "../../actions/matching";
 export const maxDuration = 30;
 
+interface ProfilePreferences {
+  readonly cuisines?: readonly string[];
+  readonly preferredAreas?: readonly string[];
+}
+
+function parseProfilePreferences(value: unknown): ProfilePreferences {
+  if (typeof value === "string") {
+    try {
+      return parseProfilePreferences(JSON.parse(value));
+    } catch {
+      return {};
+    }
+  }
+
+  if (!value || typeof value !== "object") return {};
+  const preferences = value as { cuisines?: unknown; preferredAreas?: unknown };
+  return {
+    cuisines: Array.isArray(preferences.cuisines) ? preferences.cuisines.filter((item): item is string => typeof item === "string") : [],
+    preferredAreas: Array.isArray(preferences.preferredAreas) ? preferences.preferredAreas.filter((item): item is string => typeof item === "string") : [],
+  };
+}
+
+function parseStringList(value: unknown): string[] {
+  if (typeof value === "string") {
+    try {
+      return parseStringList(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -26,27 +60,314 @@ export async function POST(req: Request) {
     const modelMessages = await convertToModelMessages(messages);
     console.log("[Chat API] Model messages:", JSON.stringify(modelMessages, null, 2));
     
+    const restaurantTool = tool({
+      description: "Find restaurant spots in Bangalore by area/cuisine/vibe. Read-only; does not create dining intents.",
+      inputSchema: zodSchema(z.object({
+        area: z.string().optional().describe("Neighborhood or area"),
+        query: z.string().optional().describe("Cuisine, restaurant name, or vibe such as romantic"),
+      })),
+      execute: async ({ area, query }: { area?: string; query?: string }) => {
+        console.log(">>>> [Tool: findRestaurants] Called with params:", { area, query });
+        try {
+          const restaurants = await prisma.restaurant.findMany({ orderBy: { rating: "desc" }, take: 50 });
+          const normalizedArea = area?.trim().toLowerCase();
+          const normalizedQuery = query?.trim().toLowerCase();
+          const filtered = restaurants.filter((restaurant) => {
+            const areaMatches = normalizedArea ? restaurant.area.toLowerCase().includes(normalizedArea) : true;
+            const searchable = [
+              restaurant.name,
+              restaurant.area,
+              JSON.stringify(restaurant.cuisine),
+              JSON.stringify(restaurant.ambiance),
+              JSON.stringify(restaurant.highlights),
+            ].join(" ").toLowerCase();
+            const queryMatches = normalizedQuery ? searchable.includes(normalizedQuery) || normalizedQuery === "romantic" : true;
+            return areaMatches && queryMatches;
+          }).slice(0, 5);
+
+          return {
+            status: "success",
+            count: filtered.length,
+            message: filtered.length === 0
+              ? `I couldn't find restaurant spots${area ? ` in ${area}` : ""}${query ? ` for ${query}` : ""}.`
+              : `I found ${filtered.length} spot${filtered.length === 1 ? "" : "s"}${area ? ` in ${area}` : ""}.`,
+            restaurants: filtered.map((restaurant) => ({
+              id: restaurant.id,
+              name: restaurant.name,
+              area: restaurant.area,
+              cuisine: restaurant.cuisine,
+              rating: restaurant.rating,
+              costForTwo: restaurant.costForTwo,
+              ambiance: restaurant.ambiance,
+              highlights: restaurant.highlights,
+            })),
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(">>>> [Tool: findRestaurants] Failed:", error);
+          return { status: "error", message: `Could not search restaurants: ${message}`, restaurants: [] };
+        }
+      },
+    });
+
+    const checkDinersTool = tool({
+      description: "Read-only check for other open dinner intents. Use this when the user asks if anyone is looking/interested/available. Do not record the current user's interest.",
+      inputSchema: zodSchema(z.object({
+        area: z.string().optional().describe("Neighborhood or area to filter by"),
+        date: z.string().optional().describe("Date to filter by. Leave empty for any upcoming date."),
+        timeSlot: z.string().optional().describe("LUNCH or DINNER"),
+        preferredTime: z.string().optional().describe("Exact preferred time, e.g. 20:00")
+      })),
+      execute: async ({ area, date, timeSlot, preferredTime }: { area?: string; date?: string; timeSlot?: string; preferredTime?: string }) => {
+        console.log(">>>> [Tool: checkAvailableDiners] Called with params:", { area, date, timeSlot, preferredTime });
+
+        try {
+        const normalizedArea = area?.trim().toLowerCase();
+        const normalizedPreferredTime = preferredTime?.trim();
+
+        try {
+          const openIntents = await prisma.dinnerIntent.findMany({
+            where: {
+              profileId: { not: userId },
+              status: "OPEN",
+              ...(date ? { date } : {}),
+              ...(timeSlot ? { timeSlot: timeSlot.toUpperCase() as "LUNCH" | "DINNER" } : {}),
+            },
+            include: {
+              profile: {
+                select: {
+                  id: true,
+                  name: true,
+                  professionalTitle: true,
+                  company: true,
+                  bio: true,
+                  interests: true,
+                  diningPreferences: true,
+                  linkedinUrl: true,
+                  githubUrl: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 25,
+          });
+
+          const intents = openIntents.filter((intent) => {
+            const areaMatches = normalizedArea ? intent.preferredArea?.toLowerCase().includes(normalizedArea) : true;
+            const timeMatches = normalizedPreferredTime ? intent.preferredTime === normalizedPreferredTime || !intent.preferredTime : true;
+            return areaMatches && timeMatches;
+          });
+          const visibleIntents = intents.slice(0, 10);
+
+          if (intents.length > 0) {
+            return {
+              status: "success",
+              resultType: "open_intents",
+              matchCount: intents.length,
+              message: `I found ${intents.length} open diner${intents.length === 1 ? "" : "s"}${area ? ` in ${area}` : ""}${date ? ` on ${date}` : ""}.`,
+              cards: visibleIntents.map((intent) => {
+                const preferences = parseProfilePreferences(intent.profile.diningPreferences);
+                return {
+                  profileId: intent.profile.id,
+                  name: intent.profile.name,
+                  professionalTitle: intent.profile.professionalTitle,
+                  company: intent.profile.company,
+                  bio: intent.profile.bio,
+                  interests: parseStringList(intent.profile.interests),
+                  preferredCuisines: preferences.cuisines ?? [],
+                  preferredNeighborhoods: preferences.preferredAreas ?? [],
+                  diningIntent: {
+                    date: intent.date,
+                    timeSlot: intent.timeSlot,
+                    preferredTime: intent.preferredTime,
+                    preferredArea: intent.preferredArea,
+                    groupSize: intent.groupSize,
+                  },
+                  linkedinUrl: intent.profile.linkedinUrl,
+                  githubUrl: intent.profile.githubUrl,
+                  profilePath: `/dashboard/profiles/${intent.profile.id}`,
+                };
+              }),
+            };
+          }
+        } catch (error) {
+          console.warn(">>>> [Tool: checkAvailableDiners] Open intent lookup failed; falling back to profiles:", error);
+        }
+
+        const activeProfiles = await prisma.profile.findMany({
+          where: {
+            id: { not: userId },
+            isActive: true,
+          },
+          select: {
+            id: true,
+            name: true,
+            professionalTitle: true,
+            company: true,
+            bio: true,
+            interests: true,
+            diningPreferences: true,
+            linkedinUrl: true,
+            githubUrl: true,
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 25,
+        });
+
+        const availableProfiles = activeProfiles.filter((candidate) => {
+          if (!normalizedArea) return true;
+          const preferences = parseProfilePreferences(candidate.diningPreferences);
+          return (preferences.preferredAreas ?? []).some((candidateArea) => candidateArea.toLowerCase().includes(normalizedArea));
+        }).slice(0, 10);
+
+        return {
+          status: "success",
+          resultType: "profiles",
+          matchCount: availableProfiles.length,
+          message: availableProfiles.length === 0
+            ? `No one else has an active profile${area ? ` around ${area}` : ""} yet, and there are no open dinner requests right now.`
+            : `No one has an open dinner request right now, but I found ${availableProfiles.length} Tablr profile${availableProfiles.length === 1 ? "" : "s"}${area ? ` around ${area}` : ""} you may want to invite.`,
+          cards: availableProfiles.map((candidate) => {
+            const preferences = parseProfilePreferences(candidate.diningPreferences);
+            return {
+              profileId: candidate.id,
+              name: candidate.name,
+              professionalTitle: candidate.professionalTitle,
+              company: candidate.company,
+              bio: candidate.bio,
+              interests: parseStringList(candidate.interests),
+              preferredCuisines: preferences.cuisines ?? [],
+              preferredNeighborhoods: preferences.preferredAreas ?? [],
+              diningIntent: {
+                date: "no open request",
+                timeSlot: "profile",
+                preferredArea: (preferences.preferredAreas ?? []).join(", ") || "flexible area",
+              },
+              linkedinUrl: candidate.linkedinUrl,
+              githubUrl: candidate.githubUrl,
+              profilePath: `/dashboard/profiles/${candidate.id}`,
+            };
+          }),
+        };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(">>>> [Tool: checkAvailableDiners] Failed:", error);
+          return { status: "error", message: `Could not check available diners: ${message}`, matchCount: 0, cards: [] };
+        }
+      },
+    });
+
+    const matchStatusTool = tool({
+      description: "Check the current user's recorded dinner intents and whether any event/match has been created for them.",
+      inputSchema: zodSchema(z.object({
+        area: z.string().optional().describe("Optional neighborhood filter"),
+      })),
+      execute: async ({ area }: { area?: string }) => {
+        console.log(">>>> [Tool: checkMyMatchStatus] Called with params:", { area });
+        try {
+          const [intents, memberships] = await Promise.all([
+            prisma.dinnerIntent.findMany({
+              where: { profileId: userId, status: { in: ["OPEN", "MATCHED"] } },
+              orderBy: { createdAt: "desc" },
+              take: 25,
+            }),
+            prisma.eventMember.findMany({
+              where: { profileId: userId, event: { status: { in: ["FORMING", "CONFIRMED"] } } },
+              orderBy: { joinedAt: "desc" },
+              include: {
+                event: {
+                  include: {
+                    members: {
+                      include: {
+                        profile: { select: { id: true, name: true, professionalTitle: true, company: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            }),
+          ]);
+          const normalizedArea = area?.trim().toLowerCase();
+          const filteredIntents = normalizedArea
+            ? intents.filter((intent) => intent.preferredArea?.toLowerCase().includes(normalizedArea))
+            : intents;
+          const events = memberships
+            .map((membership) => membership.event)
+            .filter((event) => normalizedArea ? event.members.some((member) => member.profileId === userId) : true);
+
+          return {
+            status: "success",
+            activeIntentCount: filteredIntents.length,
+            matchedEventCount: events.length,
+            message: events.length > 0
+              ? `You have ${events.length} matched dinner event${events.length === 1 ? "" : "s"}.`
+              : filteredIntents.length > 0
+                ? "Your dinner interest is active, but no match has been formed yet."
+                : "You do not have an active dinner interest right now.",
+            intents: filteredIntents.map((intent) => ({
+              id: intent.id,
+              date: intent.date,
+              timeSlot: intent.timeSlot,
+              preferredArea: intent.preferredArea,
+              preferredTime: intent.preferredTime,
+              status: intent.status,
+            })),
+            events: events.map((event) => ({
+              id: event.id,
+              restaurantName: event.restaurantName,
+              scheduledDate: event.scheduledDate,
+              scheduledTime: event.scheduledTime,
+              status: event.status,
+              members: event.members.map((member) => ({
+                profileId: member.profileId,
+                name: member.profile.name,
+                status: member.status,
+                professionalTitle: member.profile.professionalTitle,
+                company: member.profile.company,
+              })),
+            })),
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(">>>> [Tool: checkMyMatchStatus] Failed:", error);
+          return { status: "error", message: `Could not check your match status: ${message}` };
+        }
+      },
+    });
+
     const diningTool = tool({
-      description: "Record a user's intent to dine out.",
+      description: "Record a user's intent to dine out. Use only when the user explicitly wants to join/create a dinner request, not when they are only checking availability.",
       inputSchema: zodSchema(z.object({
         area: z.string().describe("The neighborhood or area"),
-        date: z.string().describe("The date of the dinner"),
-        timeSlot: z.string().describe("LUNCH or DINNER")
+        date: z.string().describe("The date of the dinner, preferably YYYY-MM-DD"),
+        timeSlot: z.string().describe("LUNCH or DINNER"),
+        preferredTime: z.string().optional().describe("Exact preferred time in HH:mm, e.g. 20:00")
       })),
-      execute: async ({ area, date, timeSlot }: { area: string; date: string; timeSlot: string }) => {
-        console.log(">>>> [Tool: recordDiningIntent] Called with params:", { area, date, timeSlot });
+      execute: async ({ area, date, timeSlot, preferredTime }: { area: string; date: string; timeSlot: string; preferredTime?: string }) => {
+        console.log(">>>> [Tool: recordDiningIntent] Called with params:", { area, date, timeSlot, preferredTime });
         
         try {
-          const intent = await prisma.dinnerIntent.create({
-            data: {
-              profileId: userId,
-              date,
-              timeSlot: timeSlot.toUpperCase() as "LUNCH" | "DINNER",
-              preferredArea: area || "Anywhere",
-              status: "OPEN",
-            },
+          const normalizedTimeSlot = timeSlot.toUpperCase() as "LUNCH" | "DINNER";
+          const existingIntent = await prisma.dinnerIntent.findFirst({
+            where: { profileId: userId, status: "OPEN", date, timeSlot: normalizedTimeSlot },
+            orderBy: { createdAt: "desc" },
           });
-          console.log(">>>> [Tool: recordDiningIntent] Successfully recorded intent:", intent.id);
+          const intent = existingIntent
+            ? await prisma.dinnerIntent.update({
+                where: { id: existingIntent.id },
+                data: { preferredArea: area || existingIntent.preferredArea || "Anywhere", preferredTime },
+              })
+            : await prisma.dinnerIntent.create({
+                data: {
+                  profileId: userId,
+                  date,
+                  timeSlot: normalizedTimeSlot,
+                  preferredArea: area || "Anywhere",
+                  preferredTime,
+                  status: "OPEN",
+                },
+              });
+          console.log(">>>> [Tool: recordDiningIntent] Successfully upserted intent:", intent.id);
           
           // Trigger matching logic in the background
           triggerMatching(intent.id).catch(err => 
@@ -55,7 +376,7 @@ export async function POST(req: Request) {
           
           return {
             status: "success",
-            message: `Recorded your interest for ${date} ${timeSlot} in ${area}. Searching for partners now.`,
+            message: `${existingIntent ? "Updated" : "Recorded"} your interest for ${date} ${preferredTime ? `at ${preferredTime} ` : ""}${timeSlot} in ${area}. Searching for partners now.`,
             intentId: intent.id
           };
         } catch (err) {
@@ -91,20 +412,38 @@ export async function POST(req: Request) {
       - BREVITY IS LUXURY. Keep responses extremely short, clear, and to the point.
       - NO EXPLANATIONS. Do not explain your reasoning or the tools you use.
       - ALREADY INFORMED. You already know the user's name and professional details. Do not ask for them.
-      - ACTION-ORIENTED. Focus solely on helping find dining partners based on area, date, and time.
+      - ACTION-ORIENTED. Help with restaurant discovery, availability checks, and recording dining interests.
       
       GUARDRAILS:
       - ONLY discuss social dining, restaurants, and professional networking. 
       - REJECT all non-dining related queries politely but firmly.
       
+      READ VS WRITE:
+      - If the user asks for a restaurant/spot/place (e.g. "romantic spot in Indiranagar"), call 'findRestaurants'. Do not record their interest.
+      - If the user asks "is anyone looking/interested/available?", "anyone looking for dinner?", "show people searching", "find dining matches", or similar, this is READ-ONLY. Call 'checkAvailableDiners'. It first checks open dinner requests, then falls back to active Tablr profiles. Do not record their interest.
+      - If the user asks "check if any matches found", "any update on my match", "where is my dinner", or asks about their already-recorded request, call 'checkMyMatchStatus'.
+      - If the user says "I want to join", "record me", "I'm looking for dinner", "find me a match", or confirms they want to participate, this is WRITE. Then collect area, date, and timeSlot and call 'recordDiningIntent'.
+      - If the user asks to change an exact clock time like 7pm to 8pm, call 'recordDiningIntent' with the same date/area context and preferredTime set to the new HH:mm time.
+
+      AVAILABILITY CHECK EXTRACTION:
+      For checkAvailableDiners, use whatever filters the user gave. Date is optional. Area is optional.
+      Do not ask for missing area/date/time when the user is only checking. Call checkAvailableDiners immediately with empty filters if needed.
+      If they say "anytime", omit date.
+
       DINING INTENT EXTRACTION:
-      When a user wants to dine out, you MUST extract:
+      When a user explicitly wants to record their own dining availability, you MUST extract:
       - area: The neighborhood (e.g., HSR, Indiranagar, Koramangala).
       - date: The date (e.g., "2024-04-28" or "this Saturday").
       - timeSlot: MUST be either "LUNCH" or "DINNER". If the user mentions a specific time like "8pm", use "DINNER".
+      - preferredTime: exact time in HH:mm when mentioned (e.g. 7pm -> 19:00, 8pm -> 20:00).
 
-      Once you have these, call 'recordDiningIntent' immediately.
+      Once you have these for an explicit write request, call 'recordDiningIntent' immediately.
       
+      RESPONSE TRUTHFULNESS:
+      - Never say there is a technical issue unless a tool result has status "error".
+      - Never say you updated or recorded something unless the corresponding tool returned status "success".
+      - If checkAvailableDiners returns 0, say no one else is currently looking. Do not call it a technical problem.
+
       MANDATORY RESPONSE:
       - YOU MUST ALWAYS PROVIDE A TEXT RESPONSE IN EVERY SINGLE TURN.
       - NEVER SEND AN EMPTY RESPONSE.
@@ -114,6 +453,9 @@ export async function POST(req: Request) {
       - YOUR PRIMARY GOAL IS TO BE CONVERSATIONAL. A tool call without text is a failure.`,
       stopWhen: stepCountIs(10),
       tools: {
+        findRestaurants: restaurantTool,
+        checkAvailableDiners: checkDinersTool,
+        checkMyMatchStatus: matchStatusTool,
         recordDiningIntent: diningTool,
       },
       onStepFinish: (step) => {

@@ -114,12 +114,12 @@ async function createMatch(intent: any, partnerIntent: any) {
       restaurantName: restaurant.name,
       status: "FORMING",
       scheduledDate: date,
-      scheduledTime: timeSlot === "DINNER" ? "19:30" : "12:30",
+      scheduledTime: intent.preferredTime ?? (timeSlot === "DINNER" ? "19:30" : "12:30"),
       guestCount: 2,
       createdBy: profileId,
       members: {
         create: [
-          { profileId: profileId, status: "JOINED" },
+          { profileId: profileId, status: "ACCEPTED" },
           { profileId: partnerIntent.profileId, status: "INVITED" }
         ]
       },

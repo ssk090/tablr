@@ -23,7 +23,8 @@ export function registerProfileTools(server: McpServer, db: TablrDatabase): void
         .describe("Job title (e.g., 'Senior Product Manager')"),
       company: z.string().optional().describe("Current company or organization"),
       email: z.string().optional().describe("Email address for notifications"),
-      linkedinUrl: z.string().optional().describe("LinkedIn profile URL"),
+      linkedinUrl: z.string().url().optional().describe("LinkedIn profile URL"),
+      githubUrl: z.string().url().optional().describe("GitHub profile URL"),
       interests: z
         .array(z.string())
         .optional()
@@ -56,6 +57,7 @@ export function registerProfileTools(server: McpServer, db: TablrDatabase): void
           company: args.company,
           interests: args.interests,
           linkedinUrl: args.linkedinUrl,
+          githubUrl: args.githubUrl,
         });
 
         const semanticProfile = rawInput.trim()
@@ -70,6 +72,7 @@ export function registerProfileTools(server: McpServer, db: TablrDatabase): void
           company: args.company ?? "",
           email: args.email,
           linkedinUrl: args.linkedinUrl || undefined,
+          githubUrl: args.githubUrl || undefined,
           interests: args.interests ?? [],
           city: args.city ?? "Bangalore",
           diningPreferences: {

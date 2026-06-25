@@ -37,6 +37,8 @@ export default function Dashboard() {
       icon: <MapPin className="h-5 w-5" />,
     },
     { label: "Dining Partners", value: stats?.diningPartners ?? "0", icon: <Users className="h-5 w-5" /> },
+    { label: "Pending Invites", value: stats?.pendingInvites ?? "0", icon: <MessageSquare className="h-5 w-5" /> },
+    { label: "Accepted Matches", value: stats?.acceptedMatches ?? "0", icon: <Sparkles className="h-5 w-5" /> },
   ];
 
   return (
@@ -118,6 +120,32 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+        </motion.div>
+
+        <motion.div variants={item} className="lg:col-span-3">
+          <div className="rounded-[2.5rem] border border-white/5 bg-white/[0.02] p-8">
+            <h2 className="mb-6 font-serif text-3xl font-bold">Your Matches</h2>
+            {stats?.connectedPeople?.length ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {stats.connectedPeople.map((match) => (
+                  <Link
+                    key={`${match.event.id}-${match.profile.id}`}
+                    href={`/dashboard/profiles/${match.profile.id}?eventId=${match.event.id}`}
+                    className="rounded-3xl border border-white/5 bg-white/[0.02] p-5 transition hover:bg-white/[0.05]"
+                  >
+                    <p className="text-lg font-bold">{match.profile.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[match.profile.professionalTitle, match.profile.company].filter(Boolean).join(" · ")}
+                    </p>
+                    <p className="mt-4 text-xs uppercase tracking-widest text-primary">{match.status}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{match.event.restaurantName} · {match.event.scheduledDate}</p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No connected profiles yet. Start a dinner request to find matches.</p>
+            )}
+          </div>
         </motion.div>
       </motion.div>
     </main>

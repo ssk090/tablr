@@ -269,7 +269,7 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                             className={`rounded-full border px-6 py-3 text-sm font-bold transition-all ${
                               field.state.value.includes(c)
                                 ? "border-primary/50 bg-primary text-primary-foreground shadow-[0_0_25px_color-mix(in_srgb,var(--primary)_45%,transparent),inset_0_0_10px_rgba(255,255,255,0.1)]"
-                                : "border-white/20 bg-white/[0.03] text-muted-foreground/80 hover:border-white/40 hover:bg-white/[0.06]"
+                                : "border-border bg-background/70 text-muted-foreground shadow-sm hover:border-primary/40 hover:bg-secondary/60 dark:border-white/20 dark:bg-white/[0.03] dark:hover:border-white/40 dark:hover:bg-white/[0.06]"
                             }`}
                           >
                             {c}
@@ -302,7 +302,7 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                             className={`rounded-full border px-6 py-3 text-sm font-bold transition-all ${
                               field.state.value.includes(a)
                                 ? "border-yellow-500/50 bg-[#d4af37] text-accent-foreground shadow-[0_0_25px_rgba(212,175,55,0.5),inset_0_0_10px_rgba(255,255,255,0.2)]"
-                                : "border-white/20 bg-white/[0.03] text-muted-foreground/80 hover:border-white/40 hover:bg-white/[0.06]"
+                                : "border-border bg-background/70 text-muted-foreground shadow-sm hover:border-primary/40 hover:bg-secondary/60 dark:border-white/20 dark:bg-white/[0.03] dark:hover:border-white/40 dark:hover:bg-white/[0.06]"
                             }`}
                           >
                             {a}
@@ -362,7 +362,7 @@ export default function OnboardingForm({ userId }: { userId: string }) {
                         value={field.state.value}
                         onChange={(e) => field.handleChange(e.target.value)}
                         rows={5}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 p-6 transition-all focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/30"
+                        className="w-full rounded-2xl border border-border bg-background/70 p-6 text-foreground shadow-sm transition-all placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:bg-white/5"
                         placeholder="I'm a foodie who loves talking about product design and the best craft beers in Bangalore..."
                       />
                       {field.state.meta.errors.length > 0 && (

@@ -16,6 +16,12 @@ const db = prisma;
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+function getAppUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "https://tablr-web.vercel.app";
+}
+
 /**
  * Send notification via Resend Email
  */
@@ -41,9 +47,15 @@ async function sendNotification(profileId: string, type: string, targetId: strin
   if (normalizedType === "match_found") {
     const event = await db.diningEvent.findUnique({
       where: { id: targetId },
+      include: { members: { include: { profile: true } } },
     });
+    const sender = event?.members.find((member) => member.profileId !== profileId)?.profile;
+    const appUrl = getAppUrl();
+    const inviteUrl = sender
+      ? `${appUrl}/dashboard/profiles/${sender.id}?eventId=${targetId}`
+      : `${appUrl}/dashboard`;
 
-    subject = "🍽️ Your Match has Manifested - Tablr";
+    subject = sender ? `🍽️ ${sender.name} invited you to dine - Tablr` : "🍽️ Your Match has Manifested - Tablr";
     html = `
       <!DOCTYPE html>
       <html>
@@ -65,7 +77,7 @@ async function sendNotification(profileId: string, type: string, targetId: strin
                 <span style="color: #FF5A5F;">The table is set.</span>
               </h2>
               <p style="color: #888; font-size: 18px; line-height: 1.6; font-weight: 300;">
-                Our algorithms have identified a singular alignment. Your presence is requested for a curated dining experience in Bangalore.
+                ${sender ? `${sender.name} sent you a dining invite. Review their profile, interests, and dinner context before accepting.` : "Our algorithms have identified a singular alignment. Your presence is requested for a curated dining experience in Bangalore."}
               </p>
             </div>
             
@@ -93,7 +105,7 @@ async function sendNotification(profileId: string, type: string, targetId: strin
             </div>
             
             <div style="text-align: center;">
-              <a href="https://tablr.app/dashboard/events/${targetId}" style="display: inline-block; background-color: #FF5A5F; color: #ffffff; text-decoration: none; padding: 22px 48px; border-radius: 100px; font-size: 15px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; transition: all 0.3s ease;">Manifest Attendance</a>
+              <a href="${inviteUrl}" style="display: inline-block; background-color: #FF5A5F; color: #ffffff; text-decoration: none; padding: 22px 48px; border-radius: 100px; font-size: 15px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; transition: all 0.3s ease;">View Profile & Accept</a>
               <p style="color: #444; font-size: 12px; margin-top: 20px; font-weight: 400;">* Mutual confirmation required within 4 hours.</p>
             </div>
             

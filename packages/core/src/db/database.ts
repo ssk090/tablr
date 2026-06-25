@@ -30,6 +30,13 @@ export class TablrDatabase {
     if (!tableInfo.some((col) => col.name === "email")) {
       this.db.exec("ALTER TABLE profiles ADD COLUMN email TEXT");
     }
+    if (!tableInfo.some((col) => col.name === "github_url")) {
+      this.db.exec("ALTER TABLE profiles ADD COLUMN github_url TEXT");
+    }
+    const intentTableInfo = this.db.prepare("PRAGMA table_info(dinner_intents)").all() as Array<{ name: string }>;
+    if (!intentTableInfo.some((col) => col.name === "preferred_time")) {
+      this.db.exec("ALTER TABLE dinner_intents ADD COLUMN preferred_time TEXT");
+    }
   }
 
   // ── Profiles ─────────────────────────────────────────────────────
@@ -46,8 +53,8 @@ export class TablrDatabase {
 
     this.db
       .prepare(
-        `INSERT INTO profiles (id, name, bio, professional_title, company, email, linkedin_url, interests, city, dining_preferences, semantic_profile, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO profiles (id, name, bio, professional_title, company, email, linkedin_url, github_url, interests, city, dining_preferences, semantic_profile, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         profile.id,
@@ -57,6 +64,7 @@ export class TablrDatabase {
         profile.company,
         profile.email ?? null,
         profile.linkedinUrl ?? null,
+        profile.githubUrl ?? null,
         JSON.stringify(profile.interests),
         profile.city,
         JSON.stringify(profile.diningPreferences),
@@ -89,7 +97,7 @@ export class TablrDatabase {
 
     this.db
       .prepare(
-        `UPDATE profiles SET name = ?, bio = ?, professional_title = ?, company = ?, email = ?, linkedin_url = ?, interests = ?, city = ?, dining_preferences = ?, semantic_profile = ?, is_active = ?, updated_at = ?
+        `UPDATE profiles SET name = ?, bio = ?, professional_title = ?, company = ?, email = ?, linkedin_url = ?, github_url = ?, interests = ?, city = ?, dining_preferences = ?, semantic_profile = ?, is_active = ?, updated_at = ?
          WHERE id = ?`,
       )
       .run(
@@ -99,6 +107,7 @@ export class TablrDatabase {
         updated.company,
         updated.email ?? null,
         updated.linkedinUrl ?? null,
+        updated.githubUrl ?? null,
         JSON.stringify(updated.interests),
         updated.city,
         JSON.stringify(updated.diningPreferences),
@@ -394,6 +403,7 @@ export class TablrDatabase {
       company: row.company as string,
       email: row.email as string | undefined,
       linkedinUrl: row.linkedin_url as string | undefined,
+      githubUrl: row.github_url as string | undefined,
       interests: JSON.parse(row.interests as string) as string[],
       city: (row.city as string) || "Bangalore",
       diningPreferences: JSON.parse((row.dining_preferences as string) || "{}"),
@@ -446,6 +456,7 @@ export class TablrDatabase {
     date: string;
     timeSlot?: string;
     preferredArea?: string;
+    preferredTime?: string;
     groupSize?: number;
   }): DinnerIntent {
     const id = randomUUID();
@@ -453,8 +464,8 @@ export class TablrDatabase {
 
     this.db
       .prepare(`
-      INSERT INTO dinner_intents (id, profile_id, date, time_slot, preferred_area, group_size, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'open', ?)
+      INSERT INTO dinner_intents (id, profile_id, date, time_slot, preferred_area, preferred_time, group_size, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)
     `)
       .run(
         id,
@@ -462,6 +473,7 @@ export class TablrDatabase {
         data.date,
         data.timeSlot ?? "dinner",
         data.preferredArea ?? null,
+        data.preferredTime ?? null,
         data.groupSize ?? 4,
         now,
       );
@@ -472,6 +484,7 @@ export class TablrDatabase {
       date: data.date,
       timeSlot: (data.timeSlot ?? "dinner") as "lunch" | "dinner",
       preferredArea: data.preferredArea,
+      preferredTime: data.preferredTime,
       groupSize: data.groupSize ?? 4,
       status: "open",
       createdAt: now,
@@ -494,6 +507,7 @@ export class TablrDatabase {
       date: row.date as string,
       timeSlot: row.time_slot as string as "lunch" | "dinner",
       preferredArea: row.preferred_area as string | undefined,
+      preferredTime: row.preferred_time as string | undefined,
       groupSize: row.group_size as number,
       status: row.status as DinnerIntent["status"],
       matchedEventId: row.matched_event_id as string | undefined,
@@ -567,6 +581,7 @@ export class TablrDatabase {
       date: row.date as string,
       timeSlot: row.time_slot as string as "lunch" | "dinner",
       preferredArea: row.preferred_area as string | undefined,
+      preferredTime: row.preferred_time as string | undefined,
       groupSize: row.group_size as number,
       status: row.status as DinnerIntent["status"],
       matchedEventId: row.matched_event_id as string | undefined,
