@@ -3,13 +3,34 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { clearChatHistory, deleteMessage, getOrCreateChat, hideSubsequentMessages } from "@/app/actions/chat";
-import { 
-  Send, Sparkles, UtensilsCrossed, Loader2, MoreVertical, 
-  Trash2, Edit3, X, Check, Cog, ArrowRight, CalendarDays, 
-  MapPin, Clock, ChefHat, Sparkle, Command, Terminal
+import {
+  clearChatHistory,
+  deleteMessage,
+  getOrCreateChat,
+  hideSubsequentMessages,
+} from "@/app/actions/chat";
+import {
+  Send,
+  Sparkles,
+  UtensilsCrossed,
+  Loader2,
+  MoreVertical,
+  Trash2,
+  Edit3,
+  X,
+  Check,
+  Cog,
+  ArrowRight,
+  CalendarDays,
+  MapPin,
+  Clock,
+  ChefHat,
+  Sparkle,
+  Command,
+  Terminal,
 } from "lucide-react";
 import { cn } from "../../../components/design-system/atoms";
+import { Ripple } from "@/components/ui/ripple";
 import type { JSONValue } from "ai";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -27,32 +48,37 @@ interface ChatSession {
 }
 
 // Message type compatible with useChat from @ai-sdk/react
-type MessagePart = {
-  type: "text";
-  text: string;
-} | {
-  type: "tool-call";
-  toolCallId: string;
-  toolName: string;
-  args: Record<string, unknown>;
-} | {
-  type: "tool-result";
-  toolCallId: string;
-  toolName: string;
-  result: unknown;
-} | {
-  type: "step-start";
-} | {
-  type: string;
-  [key: string]: unknown;
-};
+type MessagePart =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "tool-call";
+      toolCallId: string;
+      toolName: string;
+      args: Record<string, unknown>;
+    }
+  | {
+      type: "tool-result";
+      toolCallId: string;
+      toolName: string;
+      result: unknown;
+    }
+  | {
+      type: "step-start";
+    }
+  | {
+      type: string;
+      [key: string]: unknown;
+    };
 
 interface ToolInvocation {
   toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
   result?: unknown;
-  state?: 'call' | 'result';
+  state?: "call" | "result";
 }
 
 type Message = {
@@ -69,7 +95,9 @@ function getMessageText(message: Message): string {
   if (typeof message.content === "string") return message.content;
   if (!message.parts) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .filter(
+      (part): part is { type: "text"; text: string } => part.type === "text",
+    )
     .map((part: { type: "text"; text: string }) => part.text)
     .join("");
 }
@@ -78,7 +106,7 @@ const SUGGESTIONS = [
   "did you find any match ?",
   "anyone looking for dinner ?",
   "where is my dinner ?",
-  "cancel my request"
+  "cancel my request",
 ];
 
 // Tool call types for AI SDK v6
@@ -99,8 +127,10 @@ interface ToolResultPart {
 // Helper to extract tool calls from message parts or toolInvocations
 function getToolCalls(message: Message): ToolCallPart[] {
   const parts = message.parts || [];
-  const partToolCalls = parts.filter((part: MessagePart): part is ToolCallPart => part.type === "tool-call");
-  
+  const partToolCalls = parts.filter(
+    (part: MessagePart): part is ToolCallPart => part.type === "tool-call",
+  );
+
   const toolInvocations = message.toolInvocations || [];
   const invocationToolCalls = toolInvocations.map((ti: ToolInvocation) => ({
     type: "tool-call" as const,
@@ -115,8 +145,10 @@ function getToolCalls(message: Message): ToolCallPart[] {
 // Helper to extract tool results from message parts or toolInvocations
 function getToolResults(message: Message): ToolResultPart[] {
   const parts = message.parts || [];
-  const partToolResults = parts.filter((part: MessagePart): part is ToolResultPart => part.type === "tool-result");
-  
+  const partToolResults = parts.filter(
+    (part: MessagePart): part is ToolResultPart => part.type === "tool-result",
+  );
+
   const toolInvocations = message.toolInvocations || [];
   const invocationToolResults = toolInvocations
     .filter((ti: ToolInvocation) => "result" in ti)
@@ -131,39 +163,54 @@ function getToolResults(message: Message): ToolResultPart[] {
 }
 
 // Tool call display component
-function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?: ToolResultPart }) {
+function ToolCallDisplay({
+  toolCall,
+  result,
+}: {
+  toolCall: ToolCallPart;
+  result?: ToolResultPart;
+}) {
   const [isExpanded, setIsExpanded] = useState(true);
-  
-  const toolIcon = {
-    recordDiningIntent: ChefHat,
-  }[toolCall.toolName] || Cog;
-  
+
+  const toolIcon =
+    {
+      recordDiningIntent: ChefHat,
+    }[toolCall.toolName] || Cog;
+
   const ToolIcon = toolIcon;
-  
+
   const formatToolName = (name: string) => {
-    return name.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+    return name
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (str) => str.toUpperCase())
+      .trim();
   };
-  
+
   const formatArgs = (args: Record<string, unknown>) => {
     return Object.entries(args).map(([key, value]) => ({
       key,
       value,
-      icon: key === 'area' ? MapPin : key === 'date' ? CalendarDays : key === 'timeSlot' ? Clock : null,
+      icon:
+        key === "area"
+          ? MapPin
+          : key === "date"
+            ? CalendarDays
+            : key === "timeSlot"
+              ? Clock
+              : null,
     }));
   };
-  
+
   const formattedArgs = formatArgs(toolCall.args);
-  
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className="my-4 rounded-3xl border border-primary/10 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 backdrop-blur-md overflow-hidden shadow-2xl shadow-primary/5"
     >
       {/* Header */}
-      <div
-        className="flex w-full items-center justify-between px-5 py-3 border-b border-primary/5"
-      >
+      <div className="flex w-full items-center justify-between px-5 py-3 border-b border-primary/5">
         <div className="flex items-center gap-4">
           <div className="relative">
             <div className="absolute -inset-2 bg-primary/20 blur-xl rounded-full animate-pulse" />
@@ -186,7 +233,7 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
         <div className="flex items-center gap-3">
           <AnimatePresence mode="wait">
             {result ? (
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-[9px] font-black text-emerald-500 uppercase tracking-widest border border-emerald-500/20 shadow-lg shadow-emerald-500/5"
@@ -195,7 +242,7 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
                 Manifested
               </motion.span>
             ) : (
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-[9px] font-black text-primary uppercase tracking-widest border border-primary/20"
@@ -207,7 +254,7 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
           </AnimatePresence>
         </div>
       </div>
-      
+
       {/* Content */}
       <div className="px-5 py-4 space-y-4">
         {/* Parameters */}
@@ -220,7 +267,7 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
           </div>
           <div className="grid grid-cols-2 gap-3">
             {formattedArgs.map(({ key, value, icon: Icon }) => (
-              <div 
+              <div
                 key={key}
                 className="group relative flex flex-col gap-1 rounded-2xl bg-muted/30 border border-border/60 p-3 transition-all hover:bg-muted/60 hover:border-primary/20"
               >
@@ -235,10 +282,10 @@ function ToolCallDisplay({ toolCall, result }: { toolCall: ToolCallPart; result?
             ))}
           </div>
         </div>
-        
+
         {/* Result */}
         {result && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             className="space-y-3"
@@ -276,11 +323,13 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
   // Prepare initial messages
   const initialMessages = useMemo((): Message[] => {
     if (!chatSession?.messages) return [];
-    return chatSession.messages.map((m): Message => ({
-      id: m.id,
-      role: m.role as "user" | "assistant",
-      parts: [{ type: "text" as const, text: m.content }],
-    }));
+    return chatSession.messages.map(
+      (m): Message => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        parts: [{ type: "text" as const, text: m.content }],
+      }),
+    );
   }, [chatSession]);
 
   // Initialize chat
@@ -310,7 +359,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
 
     const text = localInput;
     setLocalInput("");
-    
+
     try {
       console.log("[UI] Sending message to session:", chatSession.id, text);
       await sendMessage({ text });
@@ -340,7 +389,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     try {
       await deleteMessage(messageId);
       // Update local state
-      setMessages(messages.filter(m => m.id !== messageId));
+      setMessages(messages.filter((m) => m.id !== messageId));
       setActiveMenuId(null);
     } catch (err) {
       console.error("Delete failed:", err);
@@ -364,12 +413,12 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     try {
       // 1. Mark this and subsequent messages as hidden in DB
       await hideSubsequentMessages(editingMessageId);
-      
+
       // 2. Fork the conversation in local state
-      const messageIndex = messages.findIndex(m => m.id === editingMessageId);
+      const messageIndex = messages.findIndex((m) => m.id === editingMessageId);
       const forkedHistory = messages.slice(0, messageIndex);
       setMessages(forkedHistory);
-      
+
       // 3. Send the new message
       const text = editValue;
       setEditingMessageId(null);
@@ -384,7 +433,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
     <div className="flex h-[calc(100vh-4rem)] flex-col bg-background text-foreground overflow-hidden relative selection:bg-primary/30 selection:text-primary-foreground">
       {/* Grain Overlay */}
       <div className="pointer-events-none absolute inset-0 z-50 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
-      
+
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
@@ -421,11 +470,15 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
               className="flex items-center gap-2 rounded-2xl border border-border bg-muted/40 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-all hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
               aria-label="Clear chat history"
             >
-              {isClearingHistory ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {isClearingHistory ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
               Clear
             </button>
             {status !== "ready" && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="flex items-center gap-3 rounded-2xl bg-muted/40 border border-border px-4 py-2 text-[10px] font-black text-primary uppercase tracking-widest shadow-2xl"
@@ -442,50 +495,47 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
       </header>
 
       {/* Chat Area */}
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-8 py-10 scroll-smooth pb-40 custom-scrollbar"
       >
         <div className="mx-auto max-w-3xl space-y-10">
           <AnimatePresence>
             {messages.length === 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="flex flex-col items-center justify-center space-y-8 py-20 text-center"
               >
-                <div className="relative">
-                  <motion.div 
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="absolute -inset-8 border border-primary/5 rounded-full"
+                <div className="relative flex h-56 w-56 items-center justify-center overflow-hidden rounded-full">
+                  <Ripple
+                    mainCircleSize={96}
+                    mainCircleOpacity={0.16}
+                    numCircles={5}
+                    className="text-primary"
                   />
-                  <motion.div 
-                    animate={{ rotate: -360 }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    className="absolute -inset-12 border border-primary/5 rounded-full border-dashed"
-                  />
-                  <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/5 text-primary border border-primary/10 backdrop-blur-sm">
+                  <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl ">
                     <Sparkles className="h-10 w-10" />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <h2 className="text-3xl font-black tracking-tight text-foreground">
-                    Your Personal <span className="text-primary italic">Maître D'</span>
+                    Your Personal{" "}
+                    <span className="text-primary italic">Maître D'</span>
                   </h2>
                   <p className="mx-auto max-w-md text-sm font-medium text-muted-foreground/60 leading-relaxed">
-                    I orchestrate social dining experiences that transcend the ordinary. 
-                    Where shall we curate your next masterpiece?
+                    I orchestrate social dining experiences that transcend the
+                    ordinary. Where shall we curate your next masterpiece?
                   </p>
                 </div>
-                
+
                 <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 mt-8">
                   {[
                     "Find a romantic spot in Indiranagar",
                     "Best sushi for a group of six",
                     "Italian places with outdoor seating",
-                    "Quiet spots for a business dinner"
+                    "Quiet spots for a business dinner",
                   ].map((suggestion, i) => (
                     <motion.button
                       key={suggestion}
@@ -498,7 +548,9 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors border border-primary/10">
                         <Sparkle className="h-5 w-5" />
                       </div>
-                      <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors tracking-tight">{suggestion}</span>
+                      <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors tracking-tight">
+                        {suggestion}
+                      </span>
                       <ArrowRight className="absolute right-5 h-4 w-4 text-primary opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </motion.button>
                   ))}
@@ -515,35 +567,45 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
               transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
               className={cn(
                 "group/msg flex w-full relative",
-                message.role === "user" ? "justify-end" : "justify-start"
+                message.role === "user" ? "justify-end" : "justify-start",
               )}
             >
-              <div className={cn(
-                "flex max-w-[85%] items-start gap-4",
-                message.role === "user" ? "flex-row-reverse" : "flex-row"
-              )}>
+              <div
+                className={cn(
+                  "flex max-w-[85%] items-start gap-4",
+                  message.role === "user" ? "flex-row-reverse" : "flex-row",
+                )}
+              >
                 {/* Avatar / Role Indicator */}
-                <div className={cn(
-                  "mt-1 shrink-0 flex h-8 w-8 items-center justify-center rounded-xl border transition-all",
-                  message.role === "user" 
-                    ? "bg-primary/10 border-primary/20 text-primary" 
-                    : "bg-muted/50 border-border text-muted-foreground"
-                )}>
-                  {message.role === "user" ? <Command className="h-4 w-4" /> : <ChefHat className="h-4 w-4" />}
+                <div
+                  className={cn(
+                    "mt-1 shrink-0 flex h-8 w-8 items-center justify-center rounded-xl border transition-all",
+                    message.role === "user"
+                      ? "bg-primary/10 border-primary/20 text-primary"
+                      : "bg-muted/50 border-border text-muted-foreground",
+                  )}
+                >
+                  {message.role === "user" ? (
+                    <Command className="h-4 w-4" />
+                  ) : (
+                    <ChefHat className="h-4 w-4" />
+                  )}
                 </div>
 
                 <div
                   className={cn(
                     "relative group/bubble",
-                    message.role === "user" ? "w-full" : "w-full"
+                    message.role === "user" ? "w-full" : "w-full",
                   )}
                 >
-                  <div className={cn(
-                    "relative rounded-3xl text-sm leading-snug overflow-hidden transition-all",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground shadow-xl shadow-primary/10 font-medium"
-                      : "border border-border/60 bg-muted/30 backdrop-blur-xl"
-                  )}>
+                  <div
+                    className={cn(
+                      "relative rounded-3xl text-sm leading-snug overflow-hidden transition-all",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground shadow-xl shadow-primary/10 font-medium"
+                        : "border border-border/60 bg-muted/30 backdrop-blur-xl",
+                    )}
+                  >
                     {editingMessageId === message.id ? (
                       <div className="flex flex-col gap-4 min-w-[280px] p-2">
                         <textarea
@@ -554,13 +616,13 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                           rows={3}
                         />
                         <div className="flex justify-end gap-2 border-t border-border/60 pt-3">
-                          <button 
+                          <button
                             onClick={cancelEdit}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-muted/50 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors"
                           >
                             <X className="h-3 w-3" /> Cancel
                           </button>
-                          <button 
+                          <button
                             onClick={handleEditSave}
                             className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all active:scale-95"
                           >
@@ -572,72 +634,99 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                       <>
                         {/* Text Content */}
                         {getMessageText(message) && (
-                          <div className={cn(
-                            "px-6 py-3.5",
-                            message.role === "assistant" ? "text-foreground font-medium tracking-tight text-base" : "text-primary-foreground"
-                          )}>
+                          <div
+                            className={cn(
+                              "px-6 py-3.5",
+                              message.role === "assistant"
+                                ? "text-foreground font-medium tracking-tight text-base"
+                                : "text-primary-foreground",
+                            )}
+                          >
                             {getMessageText(message)}
                           </div>
                         )}
-                        
+
                         {/* Tool Calls (for assistant messages) */}
-                        {message.role === "assistant" && (() => {
-                          const toolCalls = getToolCalls(message);
-                          const toolResults = getToolResults(message);
-                          return toolCalls.length > 0 ? (
-                            <div className="px-5 pb-5">
-                              {toolCalls.map((toolCall) => {
-                                const result = toolResults.find(r => r.toolCallId === toolCall.toolCallId);
-                                return (
-                                  <ToolCallDisplay 
-                                    key={toolCall.toolCallId} 
-                                    toolCall={toolCall} 
-                                    result={result} 
-                                  />
-                                );
-                              })}
-                            </div>
-                          ) : null;
-                        })()}
-                        
-                        {/* Show tool result text inline if no text content and no dedicated tool display was shown */}
-                        {message.role === "assistant" && !getMessageText(message) && (() => {
-                          const toolResults = getToolResults(message);
-                          const toolCalls = getToolCalls(message);
-                          // Show if we have tool results but no text and NO tool calls (unusual but possible)
-                          if (toolResults.length > 0 && toolResults[0].result && toolCalls.length === 0) {
-                            return (
-                              <div className="px-7 py-5 border-t border-border/60 bg-emerald-500/5">
-                                <p className="text-emerald-400/90 italic">"{String(toolResults[0].result)}"</p>
+                        {message.role === "assistant" &&
+                          (() => {
+                            const toolCalls = getToolCalls(message);
+                            const toolResults = getToolResults(message);
+                            return toolCalls.length > 0 ? (
+                              <div className="px-5 pb-5">
+                                {toolCalls.map((toolCall) => {
+                                  const result = toolResults.find(
+                                    (r) => r.toolCallId === toolCall.toolCallId,
+                                  );
+                                  return (
+                                    <ToolCallDisplay
+                                      key={toolCall.toolCallId}
+                                      toolCall={toolCall}
+                                      result={result}
+                                    />
+                                  );
+                                })}
                               </div>
-                            );
-                          }
-                          return null;
-                        })()}
+                            ) : null;
+                          })()}
+
+                        {/* Show tool result text inline if no text content and no dedicated tool display was shown */}
+                        {message.role === "assistant" &&
+                          !getMessageText(message) &&
+                          (() => {
+                            const toolResults = getToolResults(message);
+                            const toolCalls = getToolCalls(message);
+                            // Show if we have tool results but no text and NO tool calls (unusual but possible)
+                            if (
+                              toolResults.length > 0 &&
+                              toolResults[0].result &&
+                              toolCalls.length === 0
+                            ) {
+                              return (
+                                <div className="px-7 py-5 border-t border-border/60 bg-emerald-500/5">
+                                  <p className="text-emerald-400/90 italic">
+                                    "{String(toolResults[0].result)}"
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                       </>
                     )}
                   </div>
 
                   {/* Message Actions Menu */}
                   {editingMessageId !== message.id && (
-                    <div className={cn(
-                      "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/bubble:opacity-100 transition-all duration-300",
-                      message.role === "user" ? "-left-12 pr-2" : "-right-12 pl-2"
-                    )}>
-                      <button 
-                        onClick={() => setActiveMenuId(activeMenuId === message.id ? null : message.id)}
+                    <div
+                      className={cn(
+                        "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/bubble:opacity-100 transition-all duration-300",
+                        message.role === "user"
+                          ? "-left-12 pr-2"
+                          : "-right-12 pl-2",
+                      )}
+                    >
+                      <button
+                        onClick={() =>
+                          setActiveMenuId(
+                            activeMenuId === message.id ? null : message.id,
+                          )
+                        }
                         className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted/50 text-muted-foreground/30 hover:text-primary transition-all hover:scale-110"
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
-                      
+
                       {activeMenuId === message.id && (
-                        <div className={cn(
-                          "absolute z-30 min-w-[140px] rounded-2xl border border-border bg-background/95 p-1.5 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-200",
-                          message.role === "user" ? "right-full mr-2 top-0" : "left-full ml-2 top-0"
-                        )}>
+                        <div
+                          className={cn(
+                            "absolute z-30 min-w-[140px] rounded-2xl border border-border bg-background/95 p-1.5 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 duration-200",
+                            message.role === "user"
+                              ? "right-full mr-2 top-0"
+                              : "left-full ml-2 top-0",
+                          )}
+                        >
                           {message.role === "user" && (
-                            <button 
+                            <button
                               onClick={() => startEdit(message)}
                               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 hover:text-primary transition-all"
                             >
@@ -645,7 +734,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                               Edit Ritual
                             </button>
                           )}
-                          <button 
+                          <button
                             onClick={() => handleDelete(message.id)}
                             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-destructive/60 hover:bg-destructive/10 hover:text-destructive transition-all"
                           >
@@ -660,9 +749,9 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
               </div>
             </motion.div>
           ))}
-          
+
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex justify-center"
@@ -672,37 +761,50 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
               </div>
             </motion.div>
           )}
-          
-          {isSending && !messages.some(m => m.role === 'assistant' && (getMessageText(m) || getToolCalls(m).length > 0)) && (
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex justify-start"
-            >
-              <div className="flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/30 px-6 py-3 backdrop-blur-xl">
-                <div className="flex gap-2">
-                  <motion.span 
-                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 1.5, delay: 0 }}
-                    className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
-                  />
-                  <motion.span 
-                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }}
-                    className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
-                  />
-                  <motion.span 
-                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }}
-                    className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
-                  />
+
+          {isSending &&
+            !messages.some(
+              (m) =>
+                m.role === "assistant" &&
+                (getMessageText(m) || getToolCalls(m).length > 0),
+            ) && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex justify-start"
+              >
+                <div className="flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/30 px-6 py-3 backdrop-blur-xl">
+                  <div className="flex gap-2">
+                    <motion.span
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ repeat: Infinity, duration: 1.5, delay: 0 }}
+                      className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                    />
+                    <motion.span
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1.5,
+                        delay: 0.2,
+                      }}
+                      className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                    />
+                    <motion.span
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1.5,
+                        delay: 0.4,
+                      }}
+                      className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                    />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">
+                    Synthesizing
+                  </span>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">
-                  Synthesizing
-                </span>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
         </div>
       </div>
 
@@ -717,7 +819,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                   setLocalInput(suggestion);
                   // Use setTimeout to ensure localInput state is updated before submit
                   setTimeout(() => {
-                    const form = document.querySelector('form');
+                    const form = document.querySelector("form");
                     if (form) form.requestSubmit();
                   }, 0);
                 }}
@@ -793,8 +895,12 @@ export default function NewDinnerPage() {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-background text-foreground">
         <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-8 py-6 text-center backdrop-blur-xl">
-          <p className="text-sm font-bold text-destructive uppercase tracking-widest mb-2">Manifestation Failed</p>
-          <p className="text-xs text-destructive/60">The culinary spirits are silent. Please refresh.</p>
+          <p className="text-sm font-bold text-destructive uppercase tracking-widest mb-2">
+            Manifestation Failed
+          </p>
+          <p className="text-xs text-destructive/60">
+            The culinary spirits are silent. Please refresh.
+          </p>
         </div>
       </div>
     );
