@@ -3,12 +3,16 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   clearChatHistory,
   deleteMessage,
   getOrCreateChat,
   hideSubsequentMessages,
 } from "@/app/actions/chat";
+import { sendDinnerInvite } from "@/app/actions/invite";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Send,
   Sparkles,
@@ -241,7 +245,7 @@ function ToolCallDisplay({
                 className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-[9px] font-black text-emerald-500 uppercase tracking-widest border border-emerald-500/20 shadow-lg shadow-emerald-500/5"
               >
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Manifested
+                Done
               </motion.span>
             ) : (
               <motion.span
@@ -250,7 +254,7 @@ function ToolCallDisplay({
                 className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-[9px] font-black text-primary uppercase tracking-widest border border-primary/20"
               >
                 <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                Invoking
+                Working
               </motion.span>
             )}
           </AnimatePresence>
@@ -264,7 +268,7 @@ function ToolCallDisplay({
           <div className="flex items-center gap-2">
             <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" />
             <p className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">
-              Extraction
+              Details
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -295,7 +299,7 @@ function ToolCallDisplay({
             <div className="flex items-center gap-2">
               <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/20 to-transparent" />
               <p className="text-[9px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">
-                Response
+                Result
               </p>
             </div>
             <ToolResultView toolName={toolCall.toolName} result={result.result} />
@@ -303,6 +307,116 @@ function ToolCallDisplay({
         )}
       </div>
     </motion.div>
+  );
+}
+
+// ── Person Card Component ──────────────────────────────────────────
+
+function PersonCard({
+  profileId,
+  name,
+  professionalTitle,
+  company,
+  bio,
+  interests,
+  preferredCuisines,
+  preferredNeighborhoods,
+  diningIntent,
+}: {
+  readonly profileId: string;
+  readonly name: string;
+  readonly professionalTitle?: string | null;
+  readonly company?: string | null;
+  readonly bio?: string | null;
+  readonly interests?: readonly string[];
+  readonly preferredCuisines?: readonly string[];
+  readonly preferredNeighborhoods?: readonly string[];
+  readonly diningIntent?: {
+    readonly date?: string;
+    readonly timeSlot?: string;
+    readonly preferredArea?: string | null;
+    readonly preferredTime?: string | null;
+  } | null;
+}) {
+  const queryClient = useQueryClient();
+
+  const invite = useMutation({
+    mutationFn: () => sendDinnerInvite(profileId),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(`Invite sent to ${name}!`, {
+          description: "They'll be notified of your interest.",
+        });
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    },
+    onError: (error) => {
+      toast.error("Failed to send invite", {
+        description: error instanceof Error ? error.message : "Something went wrong.",
+      });
+    },
+  });
+
+  return (
+    <div className="group rounded-2xl border border-border/60 bg-secondary/20 p-5 transition-all hover:bg-secondary/30 hover:border-primary/30">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <a
+            href={`/dashboard/profiles/${profileId}`}
+            className="font-bold text-foreground hover:text-primary transition-colors"
+          >
+            {name}
+          </a>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {[professionalTitle, company].filter(Boolean).join(" · ") || "Tablr member"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => invite.mutate()}
+          disabled={invite.isPending}
+          className="shrink-0 rounded-full bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
+        >
+          {invite.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            "Send Invite"
+          )}
+        </button>
+      </div>
+
+      {bio && (
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground line-clamp-2">{bio}</p>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+        {preferredCuisines && preferredCuisines.length > 0 && (
+          <span className="text-[10px] font-semibold text-primary/70">
+            🍽 {preferredCuisines.slice(0, 3).join(", ")}
+          </span>
+        )}
+        {preferredNeighborhoods && preferredNeighborhoods.length > 0 && (
+          <span className="text-[10px] font-semibold text-accent/70">
+            📍 {preferredNeighborhoods.slice(0, 3).join(", ")}
+          </span>
+        )}
+        {interests && interests.length > 0 && (
+          <span className="text-[10px] font-semibold text-muted-foreground/50">
+            🎯 {interests.slice(0, 3).join(", ")}
+          </span>
+        )}
+      </div>
+
+      {diningIntent?.preferredArea && (
+        <p className="mt-2 text-[10px] font-medium text-muted-foreground/40">
+          Looking for {diningIntent.timeSlot?.toLowerCase() ?? "dinner"}{" "}
+          {diningIntent.preferredTime ? `at ${diningIntent.preferredTime} ` : ""}
+          {diningIntent.date ? `on ${diningIntent.date} ` : ""}
+          in {diningIntent.preferredArea}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -355,36 +469,88 @@ function ToolResultView({ toolName, result }: { toolName: string; result: unknow
         name: string;
         professionalTitle?: string | null;
         company?: string | null;
-        preferredCuisines?: string[];
-        preferredNeighborhoods?: string[];
-        diningIntent?: { date?: string; timeSlot?: string; preferredArea?: string | null };
+        bio?: string | null;
+        interests?: readonly string[];
+        preferredCuisines?: readonly string[];
+        preferredNeighborhoods?: readonly string[];
+        diningIntent?: { date?: string; timeSlot?: string; preferredArea?: string | null; preferredTime?: string | null };
         profilePath?: string;
       }>;
     };
 
     return (
       <div className="space-y-3">
-        <div className="rounded-2xl bg-emerald-500/[0.03] border border-emerald-500/10 p-4">
-          <p className="text-sm font-semibold text-emerald-400/90">{data.message ?? `Found ${data.matchCount ?? 0} matches.`}</p>
-        </div>
+        {data.message && (
+          <p className="text-sm font-semibold text-foreground/80">{data.message}</p>
+        )}
         {data.cards?.map((card) => (
-          <a
+          <PersonCard
             key={card.profileId}
-            href={card.profilePath ?? `/dashboard/profiles/${card.profileId}`}
-            className="block rounded-2xl border border-border/60 bg-secondary/20 p-4 transition hover:bg-secondary/30"
-          >
-            <p className="font-bold text-foreground">{card.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {[card.professionalTitle, card.company].filter(Boolean).join(" · ") || "Tablr member"}
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              {card.diningIntent?.timeSlot} · {card.diningIntent?.date ?? "any date"} · {card.diningIntent?.preferredArea ?? "flexible area"}
-            </p>
-            <p className="mt-2 text-xs text-primary">
-              {[...(card.preferredCuisines ?? []), ...(card.preferredNeighborhoods ?? [])].slice(0, 5).join(" · ")}
-            </p>
-          </a>
+            profileId={card.profileId}
+            name={card.name}
+            professionalTitle={card.professionalTitle}
+            company={card.company}
+            bio={card.bio}
+            interests={card.interests}
+            preferredCuisines={card.preferredCuisines}
+            preferredNeighborhoods={card.preferredNeighborhoods}
+            diningIntent={card.diningIntent}
+          />
         ))}
+      </div>
+    );
+  }
+
+  if (toolName === "recordDiningIntent" && result && typeof result === "object") {
+    const data = result as {
+      status?: string;
+      message?: string;
+      otherDinerCount?: number;
+      otherDiners?: Array<{
+        profileId?: string;
+        name: string;
+        professionalTitle?: string | null;
+        company?: string | null;
+        bio?: string | null;
+        interests?: readonly string[];
+        preferredCuisines?: readonly string[];
+        preferredNeighborhoods?: readonly string[];
+        preferredArea?: string | null;
+        preferredTime?: string | null;
+      }>;
+    };
+
+    return (
+      <div className="space-y-3">
+        {data.message && (
+          <p className="text-sm font-semibold text-emerald-400/90">{data.message}</p>
+        )}
+        {data.otherDiners && data.otherDiners.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+              Other diners available
+            </p>
+            {data.otherDiners.map((diner, i) => (
+              diner.profileId ? (
+                <PersonCard
+                  key={`other-diner-${i}`}
+                  profileId={diner.profileId}
+                  name={diner.name}
+                  professionalTitle={diner.professionalTitle}
+                  company={diner.company}
+                  bio={diner.bio}
+                  interests={diner.interests}
+                  preferredCuisines={diner.preferredCuisines}
+                  preferredNeighborhoods={diner.preferredNeighborhoods}
+                  diningIntent={{
+                    preferredArea: diner.preferredArea,
+                    preferredTime: diner.preferredTime,
+                  }}
+                />
+              ) : null
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -431,7 +597,7 @@ function FormattedAssistantText({ text }: { text: string }) {
   );
 }
 
-function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
+function ChatInterface({ chatSession, autoPrompt }: { chatSession: ChatSession; autoPrompt?: string }) {
   const queryClient = useQueryClient();
   const [localInput, setLocalInput] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -462,6 +628,17 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
   });
 
   const isSending = status === "streaming" || status === "submitted";
+  const autoPromptSent = useRef(false);
+
+  useEffect(() => {
+    if (autoPrompt && !autoPromptSent.current && status === "ready" && messages.length === 0) {
+      autoPromptSent.current = true;
+      const timer = setTimeout(() => {
+        sendMessage({ text: autoPrompt });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrompt, status, messages.length, sendMessage]);
 
   const sendText = useCallback(
     async (text: string): Promise<void> => {
@@ -641,11 +818,11 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                   Tablr <span className="text-primary/80">Concierge</span>
                 </h1>
                 <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[8px] font-black text-primary uppercase tracking-[0.2em]">
-                  Elite
+                  Beta
                 </span>
               </div>
               <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.4em] mt-0.5">
-                Artisan Intelligence Service
+                Dining Concierge
               </p>
             </div>
           </div>
@@ -709,11 +886,11 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                 <div className="space-y-3">
                   <h2 className="text-3xl font-black tracking-tight text-foreground">
                     Your Personal{" "}
-                    <span className="text-primary italic">Ma&icirc;tre D&apos;</span>
+                    <span className="text-primary italic">Dinner Guide</span>
                   </h2>
                   <p className="mx-auto max-w-md text-sm font-medium text-muted-foreground/60 leading-relaxed">
-                    I orchestrate social dining experiences that transcend the
-                    ordinary. Where shall we curate your next masterpiece?
+                    I help you find dining partners, coordinate plans,
+                    and book tables. Ready to eat?
                   </p>
                 </div>
 
@@ -922,7 +1099,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted/50 hover:text-primary transition-all"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
-                              Edit Ritual
+                              Edit
                             </button>
                           )}
                           <button
@@ -930,7 +1107,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-destructive/60 hover:bg-destructive/10 hover:text-destructive transition-all"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            Expunge
+                            Delete
                           </button>
                         </div>
                       )}
@@ -948,7 +1125,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
               className="flex justify-center"
             >
               <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-destructive shadow-2xl backdrop-blur-md">
-                System Fault: {error.message || "Concierge Disconnected"}
+                Error: {error.message || "Connection lost"}
               </div>
             </motion.div>
           )}
@@ -991,7 +1168,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
                     />
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">
-                    Synthesizing
+                    Thinking
                   </span>
                 </div>
               </motion.div>
@@ -1077,7 +1254,7 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
             </p>
             <div className="h-px w-8 bg-muted/50" />
             <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.5em]">
-              Encrypted Session
+              Secured Session
             </p>
           </div>
         </form>
@@ -1087,6 +1264,9 @@ function ChatInterface({ chatSession }: { chatSession: ChatSession }) {
 }
 
 export default function NewDinnerPage() {
+  const searchParams = useSearchParams();
+  const autoPrompt = searchParams.get("prompt") === "check" ? "anyone looking for dinner ?" : null;
+
   // 1. Get or create chat session
   const { data: chatData, isLoading: isChatLoading } = useQuery({
     queryKey: ["chat-session"],
@@ -1104,7 +1284,7 @@ export default function NewDinnerPage() {
           </div>
           <div className="space-y-2 text-center">
             <p className="text-[10px] font-black text-primary uppercase tracking-[0.5em] animate-pulse">
-              Summoning Concierge
+              Loading Concierge
             </p>
             <div className="h-px w-24 bg-gradient-to-r from-transparent via-primary/30 to-transparent mx-auto" />
           </div>
@@ -1128,5 +1308,5 @@ export default function NewDinnerPage() {
     );
   }
 
-  return <ChatInterface chatSession={chatData as ChatSession} />;
+  return <ChatInterface chatSession={chatData as ChatSession} autoPrompt={autoPrompt ?? undefined} />;
 }

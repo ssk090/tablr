@@ -3,7 +3,8 @@
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { MapPin, MessageSquare, Plus, Sparkles, Utensils, Loader2 } from "lucide-react";
+import { MapPin, MessageSquare, Plus, Sparkles, Utensils } from "lucide-react";
+import { NumberTicker } from "@/components/ui/number-ticker";
 import Link from "next/link";
 import { getDashboardStats } from "./actions";
 
@@ -86,14 +87,14 @@ export default function Dashboard() {
             <h3 className="mb-4 font-serif text-2xl font-bold text-foreground">Tablr Concierge</h3>
             <p className="mb-6 text-muted-foreground">
               {stats?.activeRequests && stats.activeRequests > 0 
-                ? `I'm currently searching for dining partners for your ${stats.activeRequests} open request(s).`
-                : "Hi! I'm your dining concierge. I haven't found any matches for you yet. Tell me when you're free to eat!"}
+                ? `I'm searching for dining partners for your ${stats.activeRequests} open request(s).`
+                : "I haven't found matches for you yet. Tell me when you're free to dine!"}
             </p>
             <Link
-              href="/dashboard/new-dinner"
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/70 py-3 text-sm font-semibold transition-all hover:bg-secondary/30"
+              href={stats?.activeRequests && stats.activeRequests > 0 ? "/dashboard/new-dinner?prompt=check" : "/dashboard/new-dinner"}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/15 transition-all hover:scale-[1.02] active:scale-95"
             >
-              <MessageSquare className="h-4 w-4" /> Start a conversation
+              <MessageSquare className="h-4 w-4" /> {!stats ? "Start a request" : stats.activeRequests > 0 ? "Check matches" : "Tell me your preferences"}
             </Link>
           </div>
         </motion.div>
@@ -113,9 +114,14 @@ export default function Dashboard() {
                   {stat.label}
                 </p>
                 {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30 mt-1" />
-                ) : (
+                  <div className="mt-1 h-8 w-20 animate-skeleton rounded-md bg-black/20 dark:bg-white/20" />
+                ) : typeof stat.value === "string" && isNaN(Number(stat.value)) ? (
                   <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                ) : (
+                  <NumberTicker
+                    value={Number(stat.value)}
+                    className="text-2xl font-bold"
+                  />
                 )}
               </div>
             </div>
@@ -125,20 +131,35 @@ export default function Dashboard() {
         <motion.div variants={item} className="lg:col-span-3">
           <div className="rounded-[2.5rem] border border-border/70 bg-secondary/20 p-8">
             <h2 className="mb-6 font-serif text-3xl font-bold">Your Matches</h2>
-            {stats?.connectedPeople?.length ? (
+            {isLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-3xl border border-border/70 bg-secondary/20 p-5"
+                  >
+                    <div className="h-7 w-3/4 animate-skeleton rounded-md bg-black/20 dark:bg-white/20" />
+                    <div className="mt-1 h-4 w-1/2 animate-skeleton rounded-md bg-black/15 dark:bg-white/15" />
+                    <div className="mt-4 h-4 w-1/4 animate-skeleton rounded-md bg-black/15 dark:bg-white/15" />
+                    <div className="mt-2 h-4 w-2/3 animate-skeleton rounded-md bg-black/15 dark:bg-white/15" />
+                  </div>
+                ))}
+              </div>
+            ) : stats?.connectedPeople?.length ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {stats.connectedPeople.map((match) => (
                   <Link
                     key={`${match.event.id}-${match.profile.id}`}
                     href={`/dashboard/profiles/${match.profile.id}?eventId=${match.event.id}`}
-                    className="rounded-3xl border border-border/70 bg-secondary/20 p-5 transition hover:bg-secondary/30"
+                    className="group relative overflow-hidden rounded-3xl border border-border/70 bg-secondary/20 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-secondary/40 hover:shadow-lg hover:shadow-primary/5"
                   >
-                    <p className="text-lg font-bold">{match.profile.name}</p>
+                    <p className="text-lg font-bold transition-colors group-hover:text-primary">{match.profile.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {[match.profile.professionalTitle, match.profile.company].filter(Boolean).join(" · ")}
                     </p>
                     <p className="mt-4 text-xs uppercase tracking-widest text-primary">{match.status}</p>
                     <p className="mt-2 text-sm text-muted-foreground">{match.event.restaurantName} · {match.event.scheduledDate}</p>
+                    <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-primary transition-all duration-500 group-hover:w-full" />
                   </Link>
                 ))}
               </div>

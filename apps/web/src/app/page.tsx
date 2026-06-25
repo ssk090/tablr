@@ -4,12 +4,28 @@ import { useUser, UserButton } from "@clerk/nextjs";
 import { FeatureCard, GlassPanel, LandingSection } from "@/components/design-system/atoms";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { FlickeringGrid } from "@/components/ui/flickering-grid";
+import { NumberTicker } from "@/components/ui/number-ticker";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { ArrowRight, Calendar, Handshake, MailCheck, MapPin, Sparkles, Users, Utensils } from "lucide-react";
 import Link from "next/link";
 
+interface CommunityStats {
+  readonly diners: number;
+  readonly dinnersHosted: number;
+  readonly neighbourhoods: number;
+}
+
 export default function Home() {
   const { isLoaded, isSignedIn } = useUser();
+  const [stats, setStats] = useState<CommunityStats | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch(() => setStats({ diners: 0, dinnersHosted: 0, neighbourhoods: 0 }));
+  }, []);
 
   const container = {
     hidden: { opacity: 0 },
@@ -137,6 +153,31 @@ export default function Home() {
             experiences. No awkward networking—just great food and genuine connection.
           </motion.p>
 
+          {/* Community Stats Bar */}
+          <motion.div
+            variants={item}
+            className="mx-auto mb-16 grid max-w-3xl grid-cols-3 gap-4 rounded-3xl border border-border/60 bg-secondary/30 px-8 py-6 backdrop-blur-md"
+          >
+            <div className="text-center">
+              <NumberTicker value={stats?.diners ?? 0} className="text-3xl font-bold text-primary" />
+              <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Diners
+              </p>
+            </div>
+            <div className="text-center">
+              <NumberTicker value={stats?.dinnersHosted ?? 0} className="text-3xl font-bold text-primary" startValue={0} />
+              <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Dinners Hosted
+              </p>
+            </div>
+            <div className="text-center">
+              <NumberTicker value={stats?.neighbourhoods ?? 0} className="text-3xl font-bold text-primary" startValue={0} />
+              <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Neighbourhoods
+              </p>
+            </div>
+          </motion.div>
+
           <motion.div
             variants={item}
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
@@ -200,13 +241,26 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <LandingSection
+      <motion.div
         id="how-it-works"
-        eyebrow="How it works"
-        title="Match first. Book only when everyone says yes."
-        description="Tablr is people-first: discover compatible Bangalore diners by cuisine, neighbourhood, interests, and vibe before the restaurant reservation begins."
+        className="scroll-mt-24"
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
       >
-          <div className="grid gap-8 md:grid-cols-4">
+        <LandingSection
+          eyebrow="How it works"
+          title="Match first. Book only when everyone says yes."
+          description="Tablr is people-first: discover compatible Bangalore diners by cuisine, neighbourhood, interests, and vibe before the restaurant reservation begins."
+        >
+          <motion.div
+            className="grid gap-8 md:grid-cols-4"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+          >
             {[
               {
                 icon: <Users className="h-6 w-6" />,
@@ -240,66 +294,79 @@ export default function Home() {
                 <FeatureCard icon={feature.icon} title={feature.title} description={feature.desc} />
               </motion.div>
             ))}
-          </div>
-      </LandingSection>
+          </motion.div>
+        </LandingSection>
+      </motion.div>
 
       {/* Community */}
-      <section id="community" className="relative scroll-mt-24 overflow-hidden py-32">
-        <div className="absolute inset-x-0 top-1/2 h-64 -translate-y-1/2 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-          >
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.3em] text-accent">
-              Community
-            </p>
-            <h2 className="mb-6 font-serif text-4xl font-bold text-foreground md:text-6xl">
-              A warmer way to meet people over food.
-            </h2>
-            <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
-              Join curious founders, designers, operators, engineers, artists, and food lovers
-              across Indiranagar, HSR, Koramangala, Jayanagar, and beyond. Every match is built
-              around shared tastes and mutual intent—not random networking.
-            </p>
-            <Link
-              href={isLoaded && isSignedIn ? "/dashboard" : "/sign-up"}
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 text-lg font-bold text-primary-foreground shadow-2xl shadow-primary/20 transition-all hover:scale-105 hover:bg-primary/90 active:scale-95"
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
+      >
+        <section id="community" className="relative scroll-mt-24 overflow-hidden py-32">
+          <div className="absolute inset-x-0 top-1/2 h-64 -translate-y-1/2 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+          <div className="relative mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.15 }}
             >
-              Join the Community <ArrowRight className="h-5 w-5" />
-            </Link>
-          </motion.div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              ["Japanese near Indiranagar", "Matched with a product designer who also loves jazz bars."],
-              ["South Indian brunch in Jayanagar", "Met a founder comparing filter coffee notes and favourite book lists."],
-              ["Korean BBQ around HSR", "A low-pressure dinner with another new-to-Bangalore professional."],
-              ["Chef-led tasting in Koramangala", "Four diners, shared curiosity, one carefully coordinated table."],
-            ].map(([title, desc], i) => (
-              <motion.div
-                key={title}
-                className="flex"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.12 }}
+              <p className="mb-4 text-sm font-bold uppercase tracking-[0.3em] text-accent">
+                Community
+              </p>
+              <h2 className="mb-6 font-serif text-4xl font-bold text-foreground md:text-6xl">
+                A warmer way to meet people over food.
+              </h2>
+              <p className="mb-8 text-lg leading-relaxed text-muted-foreground">
+                Join curious founders, designers, operators, engineers, artists, and food lovers
+                across Indiranagar, HSR, Koramangala, Jayanagar, and beyond. Every match is built
+                around shared tastes and mutual intent—not random networking.
+              </p>
+              <Link
+                href={isLoaded && isSignedIn ? "/dashboard" : "/sign-up"}
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-8 text-lg font-bold text-primary-foreground shadow-2xl shadow-primary/20 transition-all hover:scale-105 hover:bg-primary/90 active:scale-95"
               >
-                <GlassPanel>
-                  <Handshake className="mb-5 h-7 w-7 text-accent shrink-0" />
-                  <h3 className="mb-3 font-serif text-xl font-bold text-foreground">{title}</h3>
-                  <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{desc}</p>
-                </GlassPanel>
-              </motion.div>
-            ))}
+                Join the Community <ArrowRight className="h-5 w-5" />
+              </Link>
+            </motion.div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                ["Japanese near Indiranagar", "Matched with a product designer who also loves jazz bars."],
+                ["South Indian brunch in Jayanagar", "Met a founder comparing filter coffee notes and favourite book lists."],
+                ["Korean BBQ around HSR", "A low-pressure dinner with another new-to-Bangalore professional."],
+                ["Chef-led tasting in Koramangala", "Four diners, shared curiosity, one carefully coordinated table."],
+              ].map(([title, desc], i) => (
+                <motion.div
+                  key={title}
+                  className="flex"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.12 + 0.2 }}
+                >
+                  <GlassPanel>
+                    <Handshake className="mb-5 h-7 w-7 text-accent shrink-0" />
+                    <h3 className="mb-3 font-serif text-xl font-bold text-foreground">{title}</h3>
+                    <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+                  </GlassPanel>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </motion.div>
 
       {/* Footer */}
-      <footer className="relative overflow-hidden border-t border-border/70 py-20 text-center">
+      <motion.footer
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="relative overflow-hidden border-t border-border/70 py-20 text-center">
         <FlickeringGrid
           aria-hidden="true"
           className="absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
@@ -317,7 +384,7 @@ export default function Home() {
             © 2026 Tablr Social Dining. Crafted for Bangalore Professionals.
           </p>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 }

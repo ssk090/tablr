@@ -298,7 +298,7 @@ export async function POST(req: Request) {
     });
 
     const matchStatusTool = tool({
-      description: "Check the current user's recorded dinner intents and whether any event/match has been created for them.",
+      description: "Check the current user's recorded dinner intents, matched events, and the DETAILS of who they've been matched with. Use this to show the user who their dining partner is. Always present the matched person's name, profession, company, and interests.",
       inputSchema: zodSchema(z.object({
         area: z.string().optional().describe("Optional neighborhood filter"),
       })),
@@ -366,6 +366,21 @@ export async function POST(req: Request) {
                 company: member.profile.company,
               })),
             })),
+            // Also return matched partner details in a flat format for easier AI extraction
+            matchedPartner: events.length > 0
+              ? (() => {
+                  const firstEvent = events[0];
+                  const otherMembers = firstEvent.members
+                    .filter((m) => m.profileId !== userId)
+                    .map((m) => ({
+                      name: m.profile.name,
+                      professionalTitle: m.profile.professionalTitle,
+                      company: m.profile.company,
+                      status: m.status,
+                    }));
+                  return otherMembers.length > 0 ? otherMembers[0] : null;
+                })()
+              : null,
           };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -414,16 +429,60 @@ export async function POST(req: Request) {
                 },
               });
           console.log(">>>> [Tool: recordDiningIntent] Successfully upserted intent:", intent.id);
-          
+
+          // Check if there are other open intents for the same slot to show to user immediately
+          const otherOpenIntents = await prisma.dinnerIntent.findMany({
+            where: {
+              profileId: { not: userId },
+              status: "OPEN",
+              date: normalizedDate,
+              timeSlot: normalizedTimeSlot,
+            },
+            include: {
+              profile: {
+                select: {
+                  id: true,
+                  name: true,
+                  professionalTitle: true,
+                  company: true,
+                  bio: true,
+                  interests: true,
+                  diningPreferences: true,
+                  linkedinUrl: true,
+                  githubUrl: true,
+                },
+              },
+            },
+            take: 10,
+          });
+
+          const otherDiners = otherOpenIntents.map((oi) => {
+            const prefs = parseProfilePreferences(oi.profile.diningPreferences);
+            return {
+              profileId: oi.profile.id,
+              name: oi.profile.name,
+              professionalTitle: oi.profile.professionalTitle,
+              company: oi.profile.company,
+              bio: oi.profile.bio,
+              interests: parseStringList(oi.profile.interests),
+              preferredCuisines: prefs.cuisines ?? [],
+              preferredNeighborhoods: prefs.preferredAreas ?? [],
+              preferredArea: oi.preferredArea,
+              preferredTime: oi.preferredTime,
+            };
+          });
+
           // Trigger matching logic in the background
           triggerMatching(intent.id).catch(err => 
             console.error("[Chat API] Background matching failed:", err)
           );
-          
+
           return {
             status: "success",
             message: `${existingIntent ? "Updated" : "Recorded"} your interest for ${normalizedDate} ${preferredTime ? `at ${preferredTime} ` : ""}${normalizedTimeSlot} in ${resolvedArea}${restaurant ? ` (${restaurant.name})` : ""}. Searching for partners now.`,
-            intentId: intent.id
+            intentId: intent.id,
+            otherDinerCount: otherDiners.length,
+            otherDiners: otherDiners.length > 0 ? otherDiners : undefined,
           };
         } catch (err) {
           console.error(">>>> [Tool: recordDiningIntent] Database error:", err);
@@ -461,6 +520,20 @@ export async function POST(req: Request) {
       - ALREADY INFORMED. You already know the user's name and professional details. Do not ask for them.
       - ACTION-ORIENTED. Help with restaurant discovery, availability checks, and recording dining interests.
       
+      PRESENTING PEOPLE — UI RENDERS CARDS:
+      - The chat UI automatically renders people as interactive cards with profile links and "Send Invite" buttons.
+      - You do NOT need to format person details with bold/italic or line breaks.
+      - Just write a short conversational intro line when the tool finds someone.
+      
+      Examples of good intro lines:
+      - "I found 1 person looking for dinner in Indiranagar!"
+      - "Great news — there's someone available who matches your preferences!"
+      - "I found 2 people looking for dinner. Check them out below:"
+      - End with a short call-to-action: "Would you like to join them?" or "Send an invite to connect!"
+      - The person cards will appear below your text. You don't need to repeat their details.
+      
+      DO NOT manually output **Name** — Title or *Interests:* lists — the UI handles that.
+      
       GUARDRAILS:
       - ONLY discuss social dining, restaurants, and professional networking. 
       - REJECT all non-dining related queries politely but firmly.
@@ -491,10 +564,15 @@ export async function POST(req: Request) {
       - Never say you updated or recorded something unless the corresponding tool returned status "success".
       - If checkAvailableDiners returns 0, say no one else is currently looking. Do not call it a technical problem.
 
+      AFTER RECORDING DINING INTENT:
+      - The recordDiningIntent tool returns otherDiners if anyone else is available for the same date/timeSlot. If otherDiners is non-empty, ALWAYS present those person's details (name, profession, company, interests, cuisines) to the user immediately in the same response.
+      - The match may happen in the background a moment later. If the user then asks "who matched?" or "show me the person", call checkMyMatchStatus to find the matched person's details.
+      - When checkMyMatchStatus returns events with members, ALWAYS present the matched person's full details (name, profession, company, interests).
+      
       MANDATORY RESPONSE:
       - YOU MUST ALWAYS PROVIDE A TEXT RESPONSE IN EVERY SINGLE TURN.
       - NEVER SEND AN EMPTY RESPONSE.
-      - If you are calling a tool, you MUST provide an introductory text like "Recording your interest for [area] on [date]..." 
+      - If you are calling a tool, you MUST provide an introductory text like "Looking for available diners..." or "Recording your interest for [area] on [date]..."
       - Once the tool call is complete, you MUST provide a final confirmation text summarizing the result.
       - If you have all the information, do not just call the tool; talk to the user as you do it.
       - YOUR PRIMARY GOAL IS TO BE CONVERSATIONAL. A tool call without text is a failure.`,
