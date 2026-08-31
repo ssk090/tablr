@@ -4,8 +4,8 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { MapPin, MessageSquare, Plus, Sparkles, Utensils } from "lucide-react";
-import { NumberTicker } from "@/components/ui/number-ticker";
 import Link from "next/link";
+import { NumberTicker } from "@/components/ui/number-ticker";
 import { getDashboardStats } from "./actions";
 
 export default function Dashboard() {
@@ -30,16 +30,36 @@ export default function Dashboard() {
   };
 
   const statsConfig = [
-    { label: "Active Requests", value: stats?.activeRequests ?? "0", icon: <Utensils className="h-5 w-5" /> },
-    { label: "Confirmed Dinners", value: stats?.confirmedDinners ?? "0", icon: <Calendar className="h-5 w-5" /> },
+    {
+      label: "Active Requests",
+      value: stats?.activeRequests ?? "0",
+      icon: <Utensils className="h-5 w-5" />,
+    },
+    {
+      label: "Confirmed Dinners",
+      value: stats?.confirmedDinners ?? "0",
+      icon: <Calendar className="h-5 w-5" />,
+    },
     {
       label: "Favorite Area",
       value: stats?.favoriteArea ?? "Not set",
       icon: <MapPin className="h-5 w-5" />,
     },
-    { label: "Dining Partners", value: stats?.diningPartners ?? "0", icon: <Users className="h-5 w-5" /> },
-    { label: "Pending Invites", value: stats?.pendingInvites ?? "0", icon: <MessageSquare className="h-5 w-5" /> },
-    { label: "Accepted Matches", value: stats?.acceptedMatches ?? "0", icon: <Sparkles className="h-5 w-5" /> },
+    {
+      label: "Dining Partners",
+      value: stats?.diningPartners ?? "0",
+      icon: <Users className="h-5 w-5" />,
+    },
+    {
+      label: "Pending Invites",
+      value: stats?.pendingInvites ?? "0",
+      icon: <MessageSquare className="h-5 w-5" />,
+    },
+    {
+      label: "Accepted Matches",
+      value: stats?.acceptedMatches ?? "0",
+      icon: <Sparkles className="h-5 w-5" />,
+    },
   ];
 
   return (
@@ -60,10 +80,11 @@ export default function Dashboard() {
               <p className="mb-8 max-w-md text-lg text-muted-foreground">
                 Ready for your next culinary adventure in{" "}
                 <span className="font-semibold text-foreground">
-                  {stats?.favoriteArea && stats.favoriteArea !== "Not set" 
-                    ? stats.favoriteArea 
+                  {stats?.favoriteArea && stats.favoriteArea !== "Not set"
+                    ? stats.favoriteArea
                     : "your area"}
-                </span>? Your table is waiting.
+                </span>
+                ? Your table is waiting.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
@@ -72,6 +93,12 @@ export default function Dashboard() {
                 >
                   <Plus className="h-5 w-5" /> I&apos;m looking for dinner
                 </Link>
+                <a
+                  href="/api/auth/swiggy"
+                  className="flex items-center gap-2 rounded-full border border-border/70 px-6 py-4 font-semibold text-muted-foreground transition-all hover:scale-105 hover:text-foreground active:scale-95"
+                >
+                  Connect Swiggy for live booking
+                </a>
               </div>
             </div>
             <div className="absolute top-0 right-0 h-64 w-64 -translate-y-12 translate-x-12 rounded-full bg-primary/20 blur-[80px]" />
@@ -86,15 +113,24 @@ export default function Dashboard() {
             </div>
             <h3 className="mb-4 font-serif text-2xl font-bold text-foreground">Tablr Concierge</h3>
             <p className="mb-6 text-muted-foreground">
-              {stats?.activeRequests && stats.activeRequests > 0 
+              {stats?.activeRequests && stats.activeRequests > 0
                 ? `I'm searching for dining partners for your ${stats.activeRequests} open request(s).`
                 : "I haven't found matches for you yet. Tell me when you're free to dine!"}
             </p>
             <Link
-              href={stats?.activeRequests && stats.activeRequests > 0 ? "/dashboard/new-dinner?prompt=check" : "/dashboard/new-dinner"}
+              href={
+                stats?.activeRequests && stats.activeRequests > 0
+                  ? "/dashboard/new-dinner?prompt=check"
+                  : "/dashboard/new-dinner"
+              }
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/15 transition-all hover:scale-[1.02] active:scale-95"
             >
-              <MessageSquare className="h-4 w-4" /> {!stats ? "Start a request" : stats.activeRequests > 0 ? "Check matches" : "Tell me your preferences"}
+              <MessageSquare className="h-4 w-4" />{" "}
+              {!stats
+                ? "Start a request"
+                : stats.activeRequests > 0
+                  ? "Check matches"
+                  : "Tell me your preferences"}
             </Link>
           </div>
         </motion.div>
@@ -118,10 +154,7 @@ export default function Dashboard() {
                 ) : typeof stat.value === "string" && isNaN(Number(stat.value)) ? (
                   <p className="text-2xl font-bold text-foreground">{stat.value}</p>
                 ) : (
-                  <NumberTicker
-                    value={Number(stat.value)}
-                    className="text-2xl font-bold"
-                  />
+                  <NumberTicker value={Number(stat.value)} className="text-2xl font-bold" />
                 )}
               </div>
             </div>
@@ -134,10 +167,7 @@ export default function Dashboard() {
             {isLoading ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="rounded-3xl border border-border/70 bg-secondary/20 p-5"
-                  >
+                  <div key={i} className="rounded-3xl border border-border/70 bg-secondary/20 p-5">
                     <div className="h-7 w-3/4 animate-skeleton rounded-md bg-black/20 dark:bg-white/20" />
                     <div className="mt-1 h-4 w-1/2 animate-skeleton rounded-md bg-black/15 dark:bg-white/15" />
                     <div className="mt-4 h-4 w-1/4 animate-skeleton rounded-md bg-black/15 dark:bg-white/15" />
@@ -153,18 +183,28 @@ export default function Dashboard() {
                     href={`/dashboard/profiles/${match.profile.id}?eventId=${match.event.id}`}
                     className="group relative overflow-hidden rounded-3xl border border-border/70 bg-secondary/20 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-secondary/40 hover:shadow-lg hover:shadow-primary/5"
                   >
-                    <p className="text-lg font-bold transition-colors group-hover:text-primary">{match.profile.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {[match.profile.professionalTitle, match.profile.company].filter(Boolean).join(" · ")}
+                    <p className="text-lg font-bold transition-colors group-hover:text-primary">
+                      {match.profile.name}
                     </p>
-                    <p className="mt-4 text-xs uppercase tracking-widest text-primary">{match.status}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">{match.event.restaurantName} · {match.event.scheduledDate}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[match.profile.professionalTitle, match.profile.company]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <p className="mt-4 text-xs uppercase tracking-widest text-primary">
+                      {match.status}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {match.event.restaurantName} · {match.event.scheduledDate}
+                    </p>
                     <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-primary transition-all duration-500 group-hover:w-full" />
                   </Link>
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground">No connected profiles yet. Start a dinner request to find matches.</p>
+              <p className="text-muted-foreground">
+                No connected profiles yet. Start a dinner request to find matches.
+              </p>
             )}
           </div>
         </motion.div>

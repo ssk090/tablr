@@ -1,7 +1,8 @@
+import { createMCPClient } from "@ai-sdk/mcp";
 import { createOpenAI } from "@ai-sdk/openai";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@tablr/database";
-import { streamText, convertToModelMessages, tool, zodSchema, stepCountIs } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, type ToolSet, tool, zodSchema } from "ai";
 import { z } from "zod";
 import { triggerMatching } from "../../actions/matching";
 export const maxDuration = 30;
@@ -23,8 +24,12 @@ function parseProfilePreferences(value: unknown): ProfilePreferences {
   if (!value || typeof value !== "object") return {};
   const preferences = value as { cuisines?: unknown; preferredAreas?: unknown };
   return {
-    cuisines: Array.isArray(preferences.cuisines) ? preferences.cuisines.filter((item): item is string => typeof item === "string") : [],
-    preferredAreas: Array.isArray(preferences.preferredAreas) ? preferences.preferredAreas.filter((item): item is string => typeof item === "string") : [],
+    cuisines: Array.isArray(preferences.cuisines)
+      ? preferences.cuisines.filter((item): item is string => typeof item === "string")
+      : [],
+    preferredAreas: Array.isArray(preferences.preferredAreas)
+      ? preferences.preferredAreas.filter((item): item is string => typeof item === "string")
+      : [],
   };
 }
 
@@ -37,7 +42,9 @@ function parseStringList(value: unknown): string[] {
     }
   }
 
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function todayInIndia(): Date {
@@ -57,7 +64,11 @@ function normalizeRelativeDate(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const normalized = value.trim().toLowerCase();
   const base = todayInIndia();
-  const offset = normalized.includes("tomorrow") ? 1 : normalized.includes("tonight") || normalized === "today" ? 0 : undefined;
+  const offset = normalized.includes("tomorrow")
+    ? 1
+    : normalized.includes("tonight") || normalized === "today"
+      ? 0
+      : undefined;
   if (offset === undefined) return value;
   base.setUTCDate(base.getUTCDate() + offset);
   return base.toISOString().slice(0, 10);
@@ -68,16 +79,49 @@ function normalizeTimeSlot(value: string | undefined): "LUNCH" | "DINNER" | unde
   return value.trim().toUpperCase() === "LUNCH" ? "LUNCH" : "DINNER";
 }
 
+/**
+ * Connect to the Swiggy Dineout MCP server with the user's stored OAuth token.
+ * Returns null (tools absent) when not connected, expired, or the server is
+ * unreachable. Access tokens last 5 days; the user reconnects via /api/auth/swiggy.
+ */
+async function getSwiggyDineoutTools(profileId: string): Promise<ToolSet | null> {
+  try {
+    const swiggyAuth = await prisma.swiggyAuth.findFirst({
+      where: { profileId, expiresAt: { gt: new Date(Date.now() + 60_000) } },
+    });
+    if (!swiggyAuth) return null;
+
+    const client = await createMCPClient({
+      transport: {
+        type: "http",
+        url: process.env.SWIGGY_DINEOUT_URL ?? "https://mcp.swiggy.com/dineout",
+        headers: { Authorization: `Bearer ${swiggyAuth.accessToken}` },
+      },
+    });
+    console.log("[Chat API] Swiggy Dineout MCP connected");
+    return (await client.tools()) as ToolSet;
+  } catch (error) {
+    console.warn("[Chat API] Swiggy Dineout unavailable:", error);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // Swiggy Dineout MCP tools: available when the user has connected Swiggy
+  // (OAuth token stored and unexpired). Tokens expire after 5 days; user
+  // re-authorizes via /api/auth/swiggy when expired. 401s surface as tool
+  // errors and the user should reconnect.
+  const swiggyTools = await getSwiggyDineoutTools(userId);
+
   try {
     const json = await req.json();
     const { messages, id: chatId } = json;
-    
+
     // Fetch user profile for context
     let profile = await prisma.profile.findUnique({
       where: { id: userId },
@@ -98,38 +142,56 @@ export async function POST(req: Request) {
 
     const modelMessages = await convertToModelMessages(messages);
     console.log("[Chat API] Model messages:", JSON.stringify(modelMessages, null, 2));
-    
+
     const restaurantTool = tool({
-      description: "Find restaurant spots in Bangalore by area/cuisine/vibe. Read-only; does not create dining intents.",
-      inputSchema: zodSchema(z.object({
-        area: z.string().optional().describe("Neighborhood or area"),
-        query: z.string().optional().describe("Cuisine, restaurant name, or vibe such as romantic"),
-      })),
+      description:
+        "Find restaurant spots in Bangalore by area/cuisine/vibe. Read-only; does not create dining intents.",
+      inputSchema: zodSchema(
+        z.object({
+          area: z.string().optional().describe("Neighborhood or area"),
+          query: z
+            .string()
+            .optional()
+            .describe("Cuisine, restaurant name, or vibe such as romantic"),
+        }),
+      ),
       execute: async ({ area, query }: { area?: string; query?: string }) => {
         console.log(">>>> [Tool: findRestaurants] Called with params:", { area, query });
         try {
-          const restaurants = await prisma.restaurant.findMany({ orderBy: { rating: "desc" }, take: 50 });
+          const restaurants = await prisma.restaurant.findMany({
+            orderBy: { rating: "desc" },
+            take: 50,
+          });
           const normalizedArea = area?.trim().toLowerCase();
           const normalizedQuery = query?.trim().toLowerCase();
-          const filtered = restaurants.filter((restaurant) => {
-            const areaMatches = normalizedArea ? restaurant.area.toLowerCase().includes(normalizedArea) : true;
-            const searchable = [
-              restaurant.name,
-              restaurant.area,
-              JSON.stringify(restaurant.cuisine),
-              JSON.stringify(restaurant.ambiance),
-              JSON.stringify(restaurant.highlights),
-            ].join(" ").toLowerCase();
-            const queryMatches = normalizedQuery ? searchable.includes(normalizedQuery) || normalizedQuery === "romantic" : true;
-            return areaMatches && queryMatches;
-          }).slice(0, 5);
+          const filtered = restaurants
+            .filter((restaurant) => {
+              const areaMatches = normalizedArea
+                ? restaurant.area.toLowerCase().includes(normalizedArea)
+                : true;
+              const searchable = [
+                restaurant.name,
+                restaurant.area,
+                JSON.stringify(restaurant.cuisine),
+                JSON.stringify(restaurant.ambiance),
+                JSON.stringify(restaurant.highlights),
+              ]
+                .join(" ")
+                .toLowerCase();
+              const queryMatches = normalizedQuery
+                ? searchable.includes(normalizedQuery) || normalizedQuery === "romantic"
+                : true;
+              return areaMatches && queryMatches;
+            })
+            .slice(0, 5);
 
           return {
             status: "success",
             count: filtered.length,
-            message: filtered.length === 0
-              ? `I couldn't find restaurant spots${area ? ` in ${area}` : ""}${query ? ` for ${query}` : ""}.`
-              : `I found ${filtered.length} spot${filtered.length === 1 ? "" : "s"}${area ? ` in ${area}` : ""}.`,
+            message:
+              filtered.length === 0
+                ? `I couldn't find restaurant spots${area ? ` in ${area}` : ""}${query ? ` for ${query}` : ""}.`
+                : `I found ${filtered.length} spot${filtered.length === 1 ? "" : "s"}${area ? ` in ${area}` : ""}.`,
             restaurants: filtered.map((restaurant) => ({
               id: restaurant.id,
               name: restaurant.name,
@@ -144,164 +206,209 @@ export async function POST(req: Request) {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.error(">>>> [Tool: findRestaurants] Failed:", error);
-          return { status: "error", message: `Could not search restaurants: ${message}`, restaurants: [] };
+          return {
+            status: "error",
+            message: `Could not search restaurants: ${message}`,
+            restaurants: [],
+          };
         }
       },
     });
 
     const checkDinersTool = tool({
-      description: "Read-only check for other open dinner intents. Use this when the user asks if anyone is looking/interested/available. Do not record the current user's interest.",
-      inputSchema: zodSchema(z.object({
-        area: z.string().optional().describe("Neighborhood or area to filter by"),
-        date: z.string().optional().describe("Date to filter by. Leave empty for any upcoming date."),
-        timeSlot: z.string().optional().describe("LUNCH or DINNER"),
-        preferredTime: z.string().optional().describe("Exact preferred time, e.g. 20:00")
-      })),
-      execute: async ({ area, date, timeSlot, preferredTime }: { area?: string; date?: string; timeSlot?: string; preferredTime?: string }) => {
-        console.log(">>>> [Tool: checkAvailableDiners] Called with params:", { area, date, timeSlot, preferredTime });
+      description:
+        "Read-only check for other open dinner intents. Use this when the user asks if anyone is looking/interested/available. Do not record the current user's interest.",
+      inputSchema: zodSchema(
+        z.object({
+          area: z.string().optional().describe("Neighborhood or area to filter by"),
+          date: z
+            .string()
+            .optional()
+            .describe("Date to filter by. Leave empty for any upcoming date."),
+          timeSlot: z.string().optional().describe("LUNCH or DINNER"),
+          preferredTime: z.string().optional().describe("Exact preferred time, e.g. 20:00"),
+        }),
+      ),
+      execute: async ({
+        area,
+        date,
+        timeSlot,
+        preferredTime,
+      }: {
+        area?: string;
+        date?: string;
+        timeSlot?: string;
+        preferredTime?: string;
+      }) => {
+        console.log(">>>> [Tool: checkAvailableDiners] Called with params:", {
+          area,
+          date,
+          timeSlot,
+          preferredTime,
+        });
 
         try {
-        const normalizedDate = normalizeRelativeDate(date);
-        const normalizedArea = area?.trim().toLowerCase();
-        const normalizedPreferredTime = preferredTime?.trim();
+          const normalizedDate = normalizeRelativeDate(date);
+          const normalizedArea = area?.trim().toLowerCase();
+          const normalizedPreferredTime = preferredTime?.trim();
 
-        try {
-          const openIntents = await prisma.dinnerIntent.findMany({
-            where: {
-              profileId: { not: userId },
-              status: "OPEN",
-              ...(normalizedDate ? { date: normalizedDate } : {}),
-              ...(timeSlot ? { timeSlot: normalizeTimeSlot(timeSlot) } : {}),
-            },
-            include: {
-              profile: {
-                select: {
-                  id: true,
-                  name: true,
-                  professionalTitle: true,
-                  company: true,
-                  bio: true,
-                  interests: true,
-                  diningPreferences: true,
-                  linkedinUrl: true,
-                  githubUrl: true,
+          try {
+            const openIntents = await prisma.dinnerIntent.findMany({
+              where: {
+                profileId: { not: userId },
+                status: "OPEN",
+                ...(normalizedDate ? { date: normalizedDate } : {}),
+                ...(timeSlot ? { timeSlot: normalizeTimeSlot(timeSlot) } : {}),
+              },
+              include: {
+                profile: {
+                  select: {
+                    id: true,
+                    name: true,
+                    professionalTitle: true,
+                    company: true,
+                    bio: true,
+                    interests: true,
+                    diningPreferences: true,
+                    linkedinUrl: true,
+                    githubUrl: true,
+                  },
                 },
               },
+              orderBy: { createdAt: "desc" },
+              take: 25,
+            });
+
+            const intents = openIntents.filter((intent) => {
+              const areaMatches = normalizedArea
+                ? intent.preferredArea?.toLowerCase().includes(normalizedArea)
+                : true;
+              const timeMatches = normalizedPreferredTime
+                ? intent.preferredTime === normalizedPreferredTime || !intent.preferredTime
+                : true;
+              return areaMatches && timeMatches;
+            });
+            const visibleIntents = intents.slice(0, 10);
+
+            if (intents.length > 0) {
+              return {
+                status: "success",
+                resultType: "open_intents",
+                matchCount: intents.length,
+                message: `I found ${intents.length} open diner${intents.length === 1 ? "" : "s"}${area ? ` in ${area}` : ""}${date ? ` on ${date}` : ""}.`,
+                cards: visibleIntents.map((intent) => {
+                  const preferences = parseProfilePreferences(intent.profile.diningPreferences);
+                  return {
+                    profileId: intent.profile.id,
+                    name: intent.profile.name,
+                    professionalTitle: intent.profile.professionalTitle,
+                    company: intent.profile.company,
+                    bio: intent.profile.bio,
+                    interests: parseStringList(intent.profile.interests),
+                    preferredCuisines: preferences.cuisines ?? [],
+                    preferredNeighborhoods: preferences.preferredAreas ?? [],
+                    diningIntent: {
+                      date: intent.date,
+                      timeSlot: intent.timeSlot,
+                      preferredTime: intent.preferredTime,
+                      preferredArea: intent.preferredArea,
+                      groupSize: intent.groupSize,
+                    },
+                    linkedinUrl: intent.profile.linkedinUrl,
+                    githubUrl: intent.profile.githubUrl,
+                    profilePath: `/dashboard/profiles/${intent.profile.id}`,
+                  };
+                }),
+              };
+            }
+          } catch (error) {
+            console.warn(
+              ">>>> [Tool: checkAvailableDiners] Open intent lookup failed; falling back to profiles:",
+              error,
+            );
+          }
+
+          const activeProfiles = await prisma.profile.findMany({
+            where: {
+              id: { not: userId },
+              isActive: true,
             },
-            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              name: true,
+              professionalTitle: true,
+              company: true,
+              bio: true,
+              interests: true,
+              diningPreferences: true,
+              linkedinUrl: true,
+              githubUrl: true,
+            },
+            orderBy: { updatedAt: "desc" },
             take: 25,
           });
 
-          const intents = openIntents.filter((intent) => {
-            const areaMatches = normalizedArea ? intent.preferredArea?.toLowerCase().includes(normalizedArea) : true;
-            const timeMatches = normalizedPreferredTime ? intent.preferredTime === normalizedPreferredTime || !intent.preferredTime : true;
-            return areaMatches && timeMatches;
-          });
-          const visibleIntents = intents.slice(0, 10);
+          const availableProfiles = activeProfiles
+            .filter((candidate) => {
+              if (!normalizedArea) return true;
+              const preferences = parseProfilePreferences(candidate.diningPreferences);
+              return (preferences.preferredAreas ?? []).some((candidateArea) =>
+                candidateArea.toLowerCase().includes(normalizedArea),
+              );
+            })
+            .slice(0, 10);
 
-          if (intents.length > 0) {
-            return {
-              status: "success",
-              resultType: "open_intents",
-              matchCount: intents.length,
-              message: `I found ${intents.length} open diner${intents.length === 1 ? "" : "s"}${area ? ` in ${area}` : ""}${date ? ` on ${date}` : ""}.`,
-              cards: visibleIntents.map((intent) => {
-                const preferences = parseProfilePreferences(intent.profile.diningPreferences);
-                return {
-                  profileId: intent.profile.id,
-                  name: intent.profile.name,
-                  professionalTitle: intent.profile.professionalTitle,
-                  company: intent.profile.company,
-                  bio: intent.profile.bio,
-                  interests: parseStringList(intent.profile.interests),
-                  preferredCuisines: preferences.cuisines ?? [],
-                  preferredNeighborhoods: preferences.preferredAreas ?? [],
-                  diningIntent: {
-                    date: intent.date,
-                    timeSlot: intent.timeSlot,
-                    preferredTime: intent.preferredTime,
-                    preferredArea: intent.preferredArea,
-                    groupSize: intent.groupSize,
-                  },
-                  linkedinUrl: intent.profile.linkedinUrl,
-                  githubUrl: intent.profile.githubUrl,
-                  profilePath: `/dashboard/profiles/${intent.profile.id}`,
-                };
-              }),
-            };
-          }
-        } catch (error) {
-          console.warn(">>>> [Tool: checkAvailableDiners] Open intent lookup failed; falling back to profiles:", error);
-        }
-
-        const activeProfiles = await prisma.profile.findMany({
-          where: {
-            id: { not: userId },
-            isActive: true,
-          },
-          select: {
-            id: true,
-            name: true,
-            professionalTitle: true,
-            company: true,
-            bio: true,
-            interests: true,
-            diningPreferences: true,
-            linkedinUrl: true,
-            githubUrl: true,
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 25,
-        });
-
-        const availableProfiles = activeProfiles.filter((candidate) => {
-          if (!normalizedArea) return true;
-          const preferences = parseProfilePreferences(candidate.diningPreferences);
-          return (preferences.preferredAreas ?? []).some((candidateArea) => candidateArea.toLowerCase().includes(normalizedArea));
-        }).slice(0, 10);
-
-        return {
-          status: "success",
-          resultType: "profiles",
-          matchCount: availableProfiles.length,
-          message: availableProfiles.length === 0
-            ? `No one else has an active profile${area ? ` around ${area}` : ""} yet, and there are no open dinner requests right now.`
-            : `No one has an open dinner request right now, but I found ${availableProfiles.length} Tablr profile${availableProfiles.length === 1 ? "" : "s"}${area ? ` around ${area}` : ""} you may want to invite.`,
-          cards: availableProfiles.map((candidate) => {
-            const preferences = parseProfilePreferences(candidate.diningPreferences);
-            return {
-              profileId: candidate.id,
-              name: candidate.name,
-              professionalTitle: candidate.professionalTitle,
-              company: candidate.company,
-              bio: candidate.bio,
-              interests: parseStringList(candidate.interests),
-              preferredCuisines: preferences.cuisines ?? [],
-              preferredNeighborhoods: preferences.preferredAreas ?? [],
-              diningIntent: {
-                date: "no open request",
-                timeSlot: "profile",
-                preferredArea: (preferences.preferredAreas ?? []).join(", ") || "flexible area",
-              },
-              linkedinUrl: candidate.linkedinUrl,
-              githubUrl: candidate.githubUrl,
-              profilePath: `/dashboard/profiles/${candidate.id}`,
-            };
-          }),
-        };
+          return {
+            status: "success",
+            resultType: "profiles",
+            matchCount: availableProfiles.length,
+            message:
+              availableProfiles.length === 0
+                ? `No one else has an active profile${area ? ` around ${area}` : ""} yet, and there are no open dinner requests right now.`
+                : `No one has an open dinner request right now, but I found ${availableProfiles.length} Tablr profile${availableProfiles.length === 1 ? "" : "s"}${area ? ` around ${area}` : ""} you may want to invite.`,
+            cards: availableProfiles.map((candidate) => {
+              const preferences = parseProfilePreferences(candidate.diningPreferences);
+              return {
+                profileId: candidate.id,
+                name: candidate.name,
+                professionalTitle: candidate.professionalTitle,
+                company: candidate.company,
+                bio: candidate.bio,
+                interests: parseStringList(candidate.interests),
+                preferredCuisines: preferences.cuisines ?? [],
+                preferredNeighborhoods: preferences.preferredAreas ?? [],
+                diningIntent: {
+                  date: "no open request",
+                  timeSlot: "profile",
+                  preferredArea: (preferences.preferredAreas ?? []).join(", ") || "flexible area",
+                },
+                linkedinUrl: candidate.linkedinUrl,
+                githubUrl: candidate.githubUrl,
+                profilePath: `/dashboard/profiles/${candidate.id}`,
+              };
+            }),
+          };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.error(">>>> [Tool: checkAvailableDiners] Failed:", error);
-          return { status: "error", message: `Could not check available diners: ${message}`, matchCount: 0, cards: [] };
+          return {
+            status: "error",
+            message: `Could not check available diners: ${message}`,
+            matchCount: 0,
+            cards: [],
+          };
         }
       },
     });
 
     const matchStatusTool = tool({
-      description: "Check the current user's recorded dinner intents, matched events, and the DETAILS of who they've been matched with. Use this to show the user who their dining partner is. Always present the matched person's name, profession, company, and interests.",
-      inputSchema: zodSchema(z.object({
-        area: z.string().optional().describe("Optional neighborhood filter"),
-      })),
+      description:
+        "Check the current user's recorded dinner intents, matched events, and the DETAILS of who they've been matched with. Use this to show the user who their dining partner is. Always present the matched person's name, profession, company, and interests.",
+      inputSchema: zodSchema(
+        z.object({
+          area: z.string().optional().describe("Optional neighborhood filter"),
+        }),
+      ),
       execute: async ({ area }: { area?: string }) => {
         console.log(">>>> [Tool: checkMyMatchStatus] Called with params:", { area });
         try {
@@ -319,7 +426,9 @@ export async function POST(req: Request) {
                   include: {
                     members: {
                       include: {
-                        profile: { select: { id: true, name: true, professionalTitle: true, company: true } },
+                        profile: {
+                          select: { id: true, name: true, professionalTitle: true, company: true },
+                        },
                       },
                     },
                   },
@@ -329,21 +438,26 @@ export async function POST(req: Request) {
           ]);
           const normalizedArea = area?.trim().toLowerCase();
           const filteredIntents = normalizedArea
-            ? intents.filter((intent) => intent.preferredArea?.toLowerCase().includes(normalizedArea))
+            ? intents.filter((intent) =>
+                intent.preferredArea?.toLowerCase().includes(normalizedArea),
+              )
             : intents;
           const events = memberships
             .map((membership) => membership.event)
-            .filter((event) => normalizedArea ? event.members.some((member) => member.profileId === userId) : true);
+            .filter((event) =>
+              normalizedArea ? event.members.some((member) => member.profileId === userId) : true,
+            );
 
           return {
             status: "success",
             activeIntentCount: filteredIntents.length,
             matchedEventCount: events.length,
-            message: events.length > 0
-              ? `You have ${events.length} matched dinner event${events.length === 1 ? "" : "s"}.`
-              : filteredIntents.length > 0
-                ? "Your dinner interest is active, but no match has been formed yet."
-                : "You do not have an active dinner interest right now.",
+            message:
+              events.length > 0
+                ? `You have ${events.length} matched dinner event${events.length === 1 ? "" : "s"}.`
+                : filteredIntents.length > 0
+                  ? "Your dinner interest is active, but no match has been formed yet."
+                  : "You do not have an active dinner interest right now.",
             intents: filteredIntents.map((intent) => ({
               id: intent.id,
               date: intent.date,
@@ -367,20 +481,21 @@ export async function POST(req: Request) {
               })),
             })),
             // Also return matched partner details in a flat format for easier AI extraction
-            matchedPartner: events.length > 0
-              ? (() => {
-                  const firstEvent = events[0];
-                  const otherMembers = firstEvent.members
-                    .filter((m) => m.profileId !== userId)
-                    .map((m) => ({
-                      name: m.profile.name,
-                      professionalTitle: m.profile.professionalTitle,
-                      company: m.profile.company,
-                      status: m.status,
-                    }));
-                  return otherMembers.length > 0 ? otherMembers[0] : null;
-                })()
-              : null,
+            matchedPartner:
+              events.length > 0
+                ? (() => {
+                    const firstEvent = events[0];
+                    const otherMembers = firstEvent.members
+                      .filter((m) => m.profileId !== userId)
+                      .map((m) => ({
+                        name: m.profile.name,
+                        professionalTitle: m.profile.professionalTitle,
+                        company: m.profile.company,
+                        status: m.status,
+                      }));
+                    return otherMembers.length > 0 ? otherMembers[0] : null;
+                  })()
+                : null,
           };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -391,16 +506,37 @@ export async function POST(req: Request) {
     });
 
     const diningTool = tool({
-      description: "Record a user's intent to dine out. Use only when the user explicitly wants to join/create a dinner request, not when they are only checking availability.",
-      inputSchema: zodSchema(z.object({
-        area: z.string().describe("The neighborhood or area"),
-        date: z.string().describe("The date of the dinner, preferably YYYY-MM-DD"),
-        timeSlot: z.string().describe("LUNCH or DINNER"),
-        preferredTime: z.string().optional().describe("Exact preferred time in HH:mm, e.g. 20:00")
-      })),
-      execute: async ({ area, date, timeSlot, preferredTime }: { area: string; date: string; timeSlot: string; preferredTime?: string }) => {
-        console.log(">>>> [Tool: recordDiningIntent] Called with params:", { area, date, timeSlot, preferredTime });
-        
+      description:
+        "Record a user's intent to dine out. Use only when the user explicitly wants to join/create a dinner request, not when they are only checking availability.",
+      inputSchema: zodSchema(
+        z.object({
+          area: z.string().describe("The neighborhood or area"),
+          date: z.string().describe("The date of the dinner, preferably YYYY-MM-DD"),
+          timeSlot: z.string().describe("LUNCH or DINNER"),
+          preferredTime: z
+            .string()
+            .optional()
+            .describe("Exact preferred time in HH:mm, e.g. 20:00"),
+        }),
+      ),
+      execute: async ({
+        area,
+        date,
+        timeSlot,
+        preferredTime,
+      }: {
+        area: string;
+        date: string;
+        timeSlot: string;
+        preferredTime?: string;
+      }) => {
+        console.log(">>>> [Tool: recordDiningIntent] Called with params:", {
+          area,
+          date,
+          timeSlot,
+          preferredTime,
+        });
+
         try {
           const normalizedDate = normalizeRelativeDate(date) ?? date;
           const normalizedTimeSlot = normalizeTimeSlot(timeSlot) ?? "DINNER";
@@ -410,13 +546,21 @@ export async function POST(req: Request) {
           });
           const resolvedArea = restaurant?.area ?? area;
           const existingIntent = await prisma.dinnerIntent.findFirst({
-            where: { profileId: userId, status: "OPEN", date: normalizedDate, timeSlot: normalizedTimeSlot },
+            where: {
+              profileId: userId,
+              status: "OPEN",
+              date: normalizedDate,
+              timeSlot: normalizedTimeSlot,
+            },
             orderBy: { createdAt: "desc" },
           });
           const intent = existingIntent
             ? await prisma.dinnerIntent.update({
                 where: { id: existingIntent.id },
-                data: { preferredArea: resolvedArea || existingIntent.preferredArea || "Anywhere", preferredTime },
+                data: {
+                  preferredArea: resolvedArea || existingIntent.preferredArea || "Anywhere",
+                  preferredTime,
+                },
               })
             : await prisma.dinnerIntent.create({
                 data: {
@@ -473,8 +617,8 @@ export async function POST(req: Request) {
           });
 
           // Trigger matching logic in the background
-          triggerMatching(intent.id).catch(err => 
-            console.error("[Chat API] Background matching failed:", err)
+          triggerMatching(intent.id).catch((err) =>
+            console.error("[Chat API] Background matching failed:", err),
           );
 
           return {
@@ -506,7 +650,7 @@ export async function POST(req: Request) {
       messages: modelMessages,
       system: `You are the Tablr Concierge, a sophisticated AI for a high-end social dining platform in Bangalore.
       
-      TODAY'S DATE: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      TODAY'S DATE: ${new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
       
       USER CONTEXT:
       - Name: ${profile?.name || "Guest"}
@@ -537,6 +681,11 @@ export async function POST(req: Request) {
       GUARDRAILS:
       - ONLY discuss social dining, restaurants, and professional networking. 
       - REJECT all non-dining related queries politely but firmly.
+      ${
+        swiggyTools
+          ? "- Swiggy Dineout tools are CONNECTED. Use them for live restaurant search, slot availability, and table booking. Only book a table after the dining event is confirmed by all members."
+          : "- Swiggy Dineout is NOT connected. Never claim live Swiggy availability or booking capability."
+      }
       
       READ VS WRITE:
       - If the user asks for a restaurant/spot/place (e.g. "romantic spot in Indiranagar"), call 'findRestaurants'. Do not record their interest.
@@ -582,24 +731,33 @@ export async function POST(req: Request) {
         checkAvailableDiners: checkDinersTool,
         checkMyMatchStatus: matchStatusTool,
         recordDiningIntent: diningTool,
+        ...(swiggyTools ?? {}),
       },
       onStepFinish: (step) => {
-        console.log(`[Chat API] Step finished. Reason: ${step.finishReason}, Tool calls: ${step.toolCalls.length}`);
+        console.log(
+          `[Chat API] Step finished. Reason: ${step.finishReason}, Tool calls: ${step.toolCalls.length}`,
+        );
       },
       onFinish: async (event) => {
         const { text, toolCalls, toolResults } = event;
-        console.log(`[Chat API] Stream finished. Text length: ${text?.length}, Tool calls: ${toolCalls?.length}`);
-        
+        console.log(
+          `[Chat API] Stream finished. Text length: ${text?.length}, Tool calls: ${toolCalls?.length}`,
+        );
+
         if (chatId) {
           try {
             // Save the user's last message
             const lastUserMessage = messages[messages.length - 1];
             if (lastUserMessage && lastUserMessage.role === "user") {
-              const content = typeof lastUserMessage.content === "string" 
-                ? lastUserMessage.content 
-                : "";
-              const userText = content || 
-                (lastUserMessage.parts?.filter((p: { type: string; text?: string }) => p.type === "text").map((p: { text?: string }) => p.text).join("") ?? "");
+              const content =
+                typeof lastUserMessage.content === "string" ? lastUserMessage.content : "";
+              const userText =
+                content ||
+                (lastUserMessage.parts
+                  ?.filter((p: { type: string; text?: string }) => p.type === "text")
+                  .map((p: { text?: string }) => p.text)
+                  .join("") ??
+                  "");
 
               await prisma.message.create({
                 data: {
@@ -613,8 +771,12 @@ export async function POST(req: Request) {
 
             // Save the assistant's response
             // Fallback to a status message if text is empty but we have tool results
-            const assistantContent = text || (toolResults.length > 0 ? "Ritual complete. I've recorded your dining interest." : "I'm ready to help with your dining plans.");
-            
+            const assistantContent =
+              text ||
+              (toolResults.length > 0
+                ? "Ritual complete. I've recorded your dining interest."
+                : "I'm ready to help with your dining plans.");
+
             await prisma.message.create({
               data: {
                 chatId,
@@ -642,7 +804,7 @@ export async function POST(req: Request) {
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

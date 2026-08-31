@@ -57,6 +57,9 @@ importers:
       '@ai-sdk/groq':
         specifier: ^3.0.35
         version: 3.0.35(zod@3.25.76)
+      '@ai-sdk/mcp':
+        specifier: ^1.0.36
+        version: 1.0.36(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: ^3.0.53
         version: 3.0.53(zod@3.25.76)
@@ -2006,6 +2009,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'

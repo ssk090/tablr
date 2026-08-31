@@ -16,7 +16,10 @@
     "GROQ_API_KEY",
     "RESEND_API_KEY",
     "QDRANT_URL",
-    "QDRANT_API_KEY"
+    "QDRANT_API_KEY",
+    "SWIGGY_MCP_BASE_URL",
+    "SWIGGY_DINEOUT_URL",
+    "SWIGGY_FOOD_URL"
   ],
   "tasks": {
     "build": {

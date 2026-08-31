@@ -32,6 +32,7 @@ model Profile {
   messages      Message[]
   chats         Chat[]
   embedding     Embedding?
+  swiggyAuth    SwiggyAuth?
 
   @@map("profiles")
 }
@@ -216,4 +217,25 @@ enum NotificationStatus {
   PENDING @map("pending")
   SENT    @map("sent")
   FAILED  @map("failed")
+}
+
+model SwiggyOAuthClient {
+  id        String   @id @default(uuid())
+  clientId  String   @unique @map("client_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("swiggy_oauth_clients")
+}
+
+model SwiggyAuth {
+  id          String   @id @default(uuid())
+  profileId   String   @unique @map("profile_id")
+  accessToken String   @map("access_token")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("swiggy_auths")
 }
