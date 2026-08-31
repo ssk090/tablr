@@ -14,7 +14,7 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) locally, or use the deployed app at [https://tablr-web.vercel.app](https://tablr-web.vercel.app).
+Open [http://localhost:3000](http://localhost:3000) locally, or use the deployed app at [https://www.tablr.lol](https://www.tablr.lol).
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
